@@ -7,7 +7,6 @@ function _nameValue ($name, $value) {
 }
 
 function _hash ($signature) {
-	Write-Host $script:storageKey
 	$signatureBytes = [Text.Encoding]::UTF8.GetBytes($signature)
 	$sixtyFourString = [Convert]::FromBase64String($script:storageKey)
 	$sha256 = New-Object System.Security.Cryptography.HMACSHA256
@@ -19,7 +18,7 @@ function _hash ($signature) {
 function _createOperationsString ($operations) {
 	if($operations -eq $null) { return [String]::Empty }
 	if($operations.Length -eq 0) { return [String]::Empty }
-	[String]::Join("`n", $($operations | %  {"$($_.Name.ToLower()):$($_.Value.ToLower())" } | Sort))
+	[String]::Join("`n", $($operations | %  {"$($_.Name.ToLower()):$($_.Value)" } | Sort))
 }
 
 function _createCanonicalizedResource ($account, $uri, $operations) {
@@ -33,18 +32,34 @@ function _createCanonicalizedHeaders ($msHeaders) {
 	[string]::join("`n", ($concatenatedHeaders | Sort))
 }
 
-function _createSignature ($verb, $canonicalizedHeaders, $canonicalizedResource, $contentLength) {
-	"$($verb.ToUpper())`n`n`n$contentLength`n`n`n`n`n`n`n`n`n$canonicalizedHeaders`n$canonicalizedResource"
+function _createSignature ($verb, $canonicalizedHeaders, $canonicalizedResource, $contentLength, $contentType, $contentHash) {
+	"$($verb.ToUpper())`n`n`n$contentLength`n$contentHash`n$contentType`n`n`n`n`n`n`n$canonicalizedHeaders`n$canonicalizedResource"
 }
 
 function _createAuthorizationHeader ($account, $signaturehash) {
 	_nameValue "Authorization" "SharedKey $account`:$signaturehash"
 }
 
+function _splitParameter ($parameterString) {
+	$firstEqualIndex = $parameterString.IndexOf('=')
+	$name = $parameterString.SubString(0, $firstEqualIndex)
+	$value = $parameterString.SubString($firstEqualIndex + 1, $parameterString.Length - $firstEqualIndex - 1)
+	_nameValue $name $value 
+}
+
+function _splitParameters ($queryString) {
+	$result = $queryString.Split("&") | % { _splitParameter $_ } 
+	,@($result)
+}
+
 function _parseUri ($uri) {
+	$accountStartIndex = 7
+
+	if($uri.SubString(0, 5) -eq "https") { $accountStartIndex = 8 }
+
 	$blobDomain = ".blob.core.windows.net"
 	$startOfBlobDomain = $uri.indexof($blobDomain);
-	$account = $uri.substring(7, $startOfBlobDomain -7)
+	$account = $uri.substring($accountStartIndex, $startOfBlobDomain - $accountStartIndex)
 	
 	$startOfResource = $startOfBlobDomain + $blobDomain.Length + 1
 	$indexOfQuestionMark = $uri.indexof("?")
@@ -57,7 +72,8 @@ function _parseUri ($uri) {
 		$lengthOfResource = $indexOfQuestionMark - $startOfResource 
 
 		$operationString = $uri.SubString($indexOfQuestionMark + 1, $uri.Length - ($indexOfQuestionMark + 1))
-		$operations = @($operationString.split('&') | % { $split = $_.split('='); _nameValue $split[0] $split[1] })
+		$operations = _splitParameters $operationString 
+		Write-Host $operations
 	}
 
 	$resource = $uri.substring($startOfResource, $lengthOfResource)
@@ -71,16 +87,17 @@ function _createMSHeaders ($content) {
 	$versionHeader = _nameValue "x-ms-version" "2009-09-19"
 	$result = @($dateHeader, $versionHeader)
 	if($content -ne $null) {
-		$blobHeader = _nameValue "x-ms-blob-type" "BlockBlob"
-		$result = $result + $blobHeader
+	$blobHeader = _nameValue "x-ms-blob-type" "BlockBlob"
+	$result = $result + $blobHeader
 	}
 	$result
 }
 
-function _createSignatureElements ($verb, $urlElements, $msHeaders, $contentLength) {
+function _createSignatureElements ($verb, $urlElements, $msHeaders, $contentLength, $contentType, $contentHash) {
 	$canonicalizedHeaders = _createCanonicalizedHeaders $msHeaders
 	$canonicalizedResource = _createCanonicalizedResource $urlElements.Account $urlElements.Resource $urlElements.Operations 
-	$signature = _createSignature $verb $canonicalizedHeaders $canonicalizedResource $contentLength
+	$signature = _createSignature $verb $canonicalizedHeaders $canonicalizedResource $contentLength $contentType $contentHash
+	Write-Host $signature
 	$signatureHash = _hash $signature
 	New-Object PsObject -Property @{
 		CanonicalizedHeaders = $canonicalizedHeaders; 
@@ -90,42 +107,60 @@ function _createSignatureElements ($verb, $urlElements, $msHeaders, $contentLeng
 	}
 }
 
-function Request ($verb, $url, $content) {
+function SharedKey ($verb, $url, $content, $contentType, $contentHash) {
 	$contentLength = $content.Length
-	$msHeaders = _createMSHeaders $content
-	$urlElements = _parseUri $url
+	$request = [Net.WebRequest]::Create($url)
+	$request.ContentType = $contentType
+	$urlElements = _parseUri $request.RequestUri.AbsoluteUri
+	$request.Method = $verb
+	$msHeaders = _createMSHeaders $request.Content
 	
-	$signatureElements = _createSignatureElements $verb $urlElements $msHeaders $contentLength 
+	$signatureElements = _createSignatureElements $verb $urlElements $msHeaders $contentLength $contentType $contentHash
 	$authorizationHeader = _createAuthorizationHeader $urlElements.Account $signatureElements.SignatureHash
-	$webRequest = [Net.WebRequest]::Create($url)
-	$webRequest.Method = $verb 
-	$webRequest.ContentLength = 0
 	
-	$msHeaders | % { $webRequest.Headers.Add($_.Name, $_.Value) }
+	$msHeaders | % { $request.Headers.Add($_.Name, $_.Value) }
+	$request.Headers.Add($authorizationHeader.Name, $authorizationHeader.Value) | Out-Null
 
-	$webRequest.Headers.Add($authorizationHeader.Name, $authorizationHeader.Value) | Out-Null
+	if($contentHash -ne $null) {
+		Write-Host "Adding Hash Header"
+		$request.Headers.Add("Content-MD5", $contentHash)
+	}
+
 	if($content -ne $null) {
-		$webRequest.ContentLength = $contentLength 
-		$requestStream = $webRequest.GetRequestStream()
+		$request.ContentLength = $contentLength 
+		$requestStream = $request.GetRequestStream()
 		$requestStream.Write($content, 0, $contentLength)
 		$requestStream.Close()
 	}
-
-	$response = $webRequest.GetResponse()
 	
-	$xmlResponseBlock = { 
-		$stream = $this.Response.GetResponseStream()
+
+	$response = $request.GetResponse()
+	
+	$result = New-Object PsObject -Property @{ 
+		WebRequest = $request;
+		UrlElements = $urlElements;
+		SignatureElements = $signatureElements;
+		Response = $response
+	}
+
+	$result
+}
+
+function AsXml {
+	process {
+		$stream = $_.Response.GetResponseStream()
 		$reader = New-Object IO.StreamReader($stream)
 		$result = $reader.ReadToEnd()
-		$this.Response.Close()
+		$_.Response.Close()
 		$stream.Close()
 		$reader.Close()
 		[xml]$result
-	}	
+	}
+}
 
-	$downloadResponseBlock = {
-		param($filePath)
-		$stream = $this.Response.GetResponseStream()
+function Download ($filePath) {
+	process {
+		$stream = $_.Response.GetResponseStream()
 		$file = [System.IO.File]::Create($filePath)
 		$buffer = New-Object Byte[] 1024
 
@@ -134,22 +169,19 @@ function Request ($verb, $url, $content) {
 			$file.Write($Buffer, 0, $BytesRead)
 		} While ($bytesRead -gt 0)
 
-		$this.Response.Close()
+		$_.Response.Close()
 		$stream.Close()
 
 		$file.Flush()
 		$file.Close()
 		$file.Dispose()
-	}
 
-	$result = New-Object PsObject -Property @{ 
-		WebRequest = $webRequest;
-		UrlElements = $urlElements;
-		SignatureElements = $signatureElements;
-		Response = $response
 	}
-	
-	Add-Member -InputObject $result -MemberType ScriptMethod -Name GetXmlResponse -Value $xmlResponseBlock
-	Add-Member -InputObject $result -MemberType ScriptMethod -Name DownloadResponse -Value $downloadResponseBlock
-	$result
+}
+
+function Close {
+	process {
+		Write-Host $_.Signature
+		$_.Response.Close()
+	}
 }
