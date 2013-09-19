@@ -1,9 +1,9 @@
 Azure-SharedKey-Powershell
 ==========================
-Load library
-. .\Steps.Azure.Storage.ps1 $storageAccountKey
 
 UploadFile
+==========================
+```powershell
 $storageAccount =
 $storageAccountKey =
 $container =
@@ -30,4 +30,4 @@ $url = "http://$storageAccount.blob.core.windows.net/$container/$script:fileName
 $blockListBytes = [Text.Encoding]::UTF8.GetBytes($script:blockListBody)
 
 SharedKey PUT $url $blockListBytes "text/plain; charset=UTF-8" | Close
-
+```
