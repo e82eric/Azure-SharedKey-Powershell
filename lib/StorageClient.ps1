@@ -98,7 +98,10 @@ function new_storage_client ($storageName, $storageKey) {
 		}
 	}
 	$obj | Add-Member -Type ScriptMethod -Name Request -Value { param ($options)
-		$url = "http://$($this.StorageName).blob.core.windows.net/$($options.Url)"
+		if($options.Url -eq $null) {
+			$options.Url = "http://$($this.StorageName).blob.core.windows.net/$($options.Resource)"
+		}
+	
 		$content = $options.Content
 		$contentType = $null
 		$contentLength = $null
@@ -107,7 +110,7 @@ function new_storage_client ($storageName, $storageKey) {
 			$contentLength = $options.Content.Length
 		}
 		
-		$request = [Net.WebRequest]::Create($url)
+		$request = [Net.WebRequest]::Create($options.Url )
 		
 		if($options.ContentType -ne $null) {
 			$contentType = $options.contentType
