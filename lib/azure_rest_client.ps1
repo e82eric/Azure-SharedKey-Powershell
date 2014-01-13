@@ -1,5 +1,4 @@
-function new_azure_rest_client ($certFilePath, $certPassword, $subscriptionId) {
-	$cert = New-Object Security.Cryptography.X509Certificates.X509Certificate2($certFilePath, $certPassword, "Exportable,PersistKeySet") 
+function new_azure_rest_client ($subscriptionId, $cert) {
 	$obj = New-Object PSObject -Property @{
 		Cert = $cert;
 		SubscriptionId = $subscriptionId
@@ -17,8 +16,8 @@ function new_azure_rest_client ($certFilePath, $certPassword, $subscriptionId) {
                 }
                 
                 $request = [Net.WebRequest]::Create($options.Url)
-                $request.ClientCertificates.Add($this.Cert)
-		$request.Headers.Add("x-ms-version", "2013-08-01")
+                $request.ClientCertificates.Add($this.Cert) | Out-Null
+		$request.Headers.Add("x-ms-version", "2013-08-01") | Out-Null
 
 		$request.ContentType = "application/xml"
                 $request.Method = $options.Verb
@@ -26,9 +25,9 @@ function new_azure_rest_client ($certFilePath, $certPassword, $subscriptionId) {
                 if($content -ne $null) {
                         $request.ContentLength = $options.Content.Length
                         $requestStream = $request.GetRequestStream()
-			$byteArray = [Text.Encoding]::UTF8.GetBytes($options.Content);
-                        $requestStream.Write($byteArray, 0, $byteArray.Length)
-                        $requestStream.Close()
+			$byteArray = [Text.Encoding]::UTF8.GetBytes($options.Content)
+                        $requestStream.Write($byteArray, 0, $byteArray.Length) | Out-Null
+                        $requestStream.Close() | Out-Null
                 }
                 
                 $response = $request.GetResponse()
@@ -43,11 +42,30 @@ function new_azure_rest_client ($certFilePath, $certPassword, $subscriptionId) {
                 catch { 
                         throw $_ 
                 } finally {
-                        $response.Close()
+                        $response.Close() | Out-Null
                 }
                 
                 $result
         }
+	$obj | Add-Member -Type ScriptMethod ExecuteOperation { param ($verb, $resource, $content)
+		$serviceResult = $this.Request(@{ Verb = $verb; Resource = $resource; Content = $content; OnResponse = $parse_operation_id })
+
+		$status = $null
+		while ($true) {
+			$operationResult = $this.Request(@{ Verb = "GET"; Resource = "operations/$($serviceResult.OperationId)"; OnResponse = $parse_xml })
+			$status = $operationResult.Operation.Status
+			Write-Host $status
+			if($operationResult.Body -ne $null) {
+				Write-Host $operationResult.Body
+			}
+			if($status -ne "InProgress") {
+				break
+			}
+		}
+		if($status -ne "Succeeded") {
+			throw $status
+		}
+	}
 	$obj
 }
                 
@@ -59,6 +77,17 @@ $parse_operation_xml = { param ($response)
         $stream.Close()
         $reader.Close()
         $body = [xml]$result
+	@{ Body = $body; OperationId = $operationId }
+}
+
+$parse_operation_id = { param ($response)
+	$operationId = $response.Headers.Get("x-ms-request-id")
+        $stream = $response.GetResponseStream()
+        $reader = New-Object IO.StreamReader($stream)
+        $result = $reader.ReadToEnd()
+        $stream.Close()
+        $reader.Close()
+        $body = $result
 	@{ Body = $body; OperationId = $operationId }
 }
 
