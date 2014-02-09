@@ -34,19 +34,33 @@ function new_azure_rest_client ($subscriptionId, $cert) {
                         $requestStream.Close() | Out-Null
                 }
                 
-                $response = $request.GetResponse()
-                
+               	$response = $null 
                 $result = $null
                 
                 try {
+			$response = $request.GetResponse()
 			if($options.OnResponse -ne $null) {
 				$result = & $options.OnResponse $response
 			}
                 }
+		catch [Net.WebException] {
+			if($null -ne $_.Exception.Response) {
+				$stream = $_.Exception.Response.GetResponseStream()
+				$reader = New-Object IO.StreamReader($stream)
+				$result = $reader.ReadToEnd()
+				$stream.Close()
+				$reader.Close()
+				Write-Host $result
+			}
+			throw $_
+		}
                 catch { 
                         throw $_ 
                 } finally {
-                        $response.Close() | Out-Null
+			if($null -ne $response) {
+				Write-Host "Disposing Response"
+				$response.Close() | Out-Null
+			}
                 }
                 
                 $result
@@ -72,7 +86,8 @@ function new_azure_rest_client ($subscriptionId, $cert) {
 			}
 		}
 		if($status -ne "Succeeded") {
-			throw $status
+			$error = $operationResult.OperationResult.Error
+			throw "Status: $status Code: $($error.Code) Message: $($error.Message)"
 		}
 		$operationResult
 	}
