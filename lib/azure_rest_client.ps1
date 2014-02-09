@@ -19,7 +19,11 @@ function new_azure_rest_client ($subscriptionId, $cert) {
                 $request.ClientCertificates.Add($this.Cert) | Out-Null
 		$request.Headers.Add("x-ms-version", "2013-08-01") | Out-Null
 
-		$request.ContentType = "application/xml"
+		if($null -eq $options.ContentType) {
+			$request.ContentType = "application/xml"
+		} else {
+			$request.ContentType = $options.ContentType
+		}
                 $request.Method = $options.Verb
 
                 if($content -ne $null) {
@@ -48,11 +52,16 @@ function new_azure_rest_client ($subscriptionId, $cert) {
                 $result
         }
 	$obj | Add-Member -Type ScriptMethod ExecuteOperation { param ($verb, $resource, $content)
-		$serviceResult = $this.Request(@{ Verb = $verb; Resource = $resource; Content = $content; OnResponse = $parse_operation_id })
+		$this.ExecuteOperation2(@{ Verb = $verb; Resource = $resource; Content = $content; })
+	}
+	$obj | Add-Member -Type ScriptMethod ExecuteOperation2 { param ($options)
+		$options.Add("OnResponse", $parse_operation_id)
+		$serviceResult = $this.Request($options)
 
+		$operationResult	
 		$status = $null
 		while ($true) {
-			$operationResult = $this.Request(@{ Verb = "GET"; Resource = "operations/$($serviceResult.OperationId)"; OnResponse = $parse_xml })
+			$operationResult = $this.Request(@{ Verb = "GET"; Resource = "operations/$($serviceResult.OperationId)"; OnResponse = $parse_xml; })
 			$status = $operationResult.Operation.Status
 			Write-Host $status
 			if($operationResult.Body -ne $null) {
@@ -65,6 +74,7 @@ function new_azure_rest_client ($subscriptionId, $cert) {
 		if($status -ne "Succeeded") {
 			throw $status
 		}
+		$operationResult
 	}
 	$obj
 }
