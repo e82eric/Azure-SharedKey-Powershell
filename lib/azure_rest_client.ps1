@@ -58,7 +58,6 @@ function new_azure_rest_client ($subscriptionId, $cert) {
                         throw $_ 
                 } finally {
 			if($null -ne $response) {
-				Write-Host "Disposing Response"
 				$response.Close() | Out-Null
 			}
                 }
@@ -69,10 +68,10 @@ function new_azure_rest_client ($subscriptionId, $cert) {
 		$this.ExecuteOperation2(@{ Verb = $verb; Resource = $resource; Content = $content; })
 	}
 	$obj | Add-Member -Type ScriptMethod ExecuteOperation2 { param ($options)
-		$options.Add("OnResponse", $parse_operation_id)
+		$options.Add("OnResponse", $parse_operation_id) | Out-Null
 		$serviceResult = $this.Request($options)
 
-		$operationResult	
+		$operationResult = $null	
 		$status = $null
 		while ($true) {
 			$operationResult = $this.Request(@{ Verb = "GET"; Resource = "operations/$($serviceResult.OperationId)"; OnResponse = $parse_xml; })
