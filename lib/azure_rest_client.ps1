@@ -83,6 +83,7 @@ function new_azure_rest_client ($subscriptionId, $cert) {
 			if($status -ne "InProgress") {
 				break
 			}
+			Start-Sleep -s 3
 		}
 		if($status -ne "Succeeded") {
 			$error = $operationResult.OperationResult.Error
