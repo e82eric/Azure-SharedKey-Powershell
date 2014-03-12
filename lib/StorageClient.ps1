@@ -97,7 +97,7 @@ function new_storage_client ($storageName, $storageKey) {
 			SignatureHash = $signatureHash
 		}
 	}
-	$obj | Add-Member -Type ScriptMethod -Name Request -Value { param ($options)
+	$obj | Add-Member -Type ScriptMethod -Name _createRequest -Value { param ($options)
 		if($options.Url -eq $null) {
 			$options.Url = "http://$($this.StorageName).blob.core.windows.net/$($options.Resource)"
 		}
@@ -106,15 +106,23 @@ function new_storage_client ($storageName, $storageKey) {
 		$contentType = $null
 		$contentLength = $null
 		
-		if($content -ne $null) {
+		if($null -ne $content) {
 			$contentLength = $options.Content.Length
 		}
 		
 		$request = [Net.WebRequest]::Create($options.Url )
+
+		if($null -ne $options.Timeout) {
+			$request.Timeout = $options.Timeout
+		}
 		
 		if($options.ContentType -ne $null) {
 			$contentType = $options.contentType
 			$request.ContentType = $contentType
+		}
+
+		if($null -eq $options.RetryCount) {
+			$options.RetryCount = 3 
 		}
 		
 		$urlElements = $this._parseUri($request.RequestUri.AbsoluteUri)
@@ -127,26 +135,46 @@ function new_storage_client ($storageName, $storageKey) {
 		$msHeaders | % { $request.Headers.Add($_.Name, $_.Value) }
 		$request.Headers.Add($authorizationHeader.Name, $authorizationHeader.Value) | Out-Null
 		
-		if($content -ne $null) {
+		if($null -ne $content) {
 			$request.ContentLength = $options.Content.Length
 			$requestStream = $request.GetRequestStream()
 			$requestStream.Write($options.Content, 0, $options.Content.Length)
 			$requestStream.Close()
 		}
-		
-		$response = $request.GetResponse()
-		
+		$request
+	}
+	$obj | Add-Member -Type ScriptMethod -Name Request -Value { param ($options)
 		$result = $null
-		
-		try {
-			if($options.ProcessResponse -ne $null) {
-				$result = & $options.ProcessResponse $response
+		$numberOfRetries = 0
+		$running = $true
+
+		while($running) { 
+			$request = $this._createRequest($options)
+			try {
+				$response = $request.GetResponse()
+				if($null -ne $options.ProcessResponse) {
+					$result = & $options.ProcessResponse $response
+				}
+				$running = $false	
+			} catch [Net.WebException] {
+				if($_.Exception.Status -eq [Net.WebExceptionStatus]::Timeout) {
+                                        if(!($numberOfRetries -lt $options.RetryCount)) {
+                                                throw $_
+                                        }
+                                        $numberOfRetries++
+                                        Write-Host "Retrying request due to timeout. Attempt $numberOfRetries of $($options.RetryCount)"
+                                }
+				else  { 
+					throw $_
+				}
 			}
-		}
-		catch { 
-			throw $_ 
-		} finally {
-			$response.Close()
+			catch {
+				throw $_
+			} finally {
+				if($null -ne $response) {
+					$response.Close()
+				}
+			}
 		}
 		
 		$result

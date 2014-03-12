@@ -4,7 +4,7 @@ function new_azure_rest_client ($subscriptionId, $cert) {
 		SubscriptionId = $subscriptionId
 
 	}
-        $obj | Add-Member -Type ScriptMethod -Name Request -Value { param ($options)
+	$obj | Add-Member -Type ScriptMethod _createRequest { param($options)
 		$options.Url = "https://management.core.windows.net/$($this.subscriptionId)/$($options.Resource)"
 
                 $content = $options.Content
@@ -14,10 +14,18 @@ function new_azure_rest_client ($subscriptionId, $cert) {
                 if($content -ne $null) {
                         $contentLength = $options.Content.Length
                 }
+
+		if($null -eq $options.RetryCount) {
+			$options.RetryCount = 3
+		}
                 
                 $request = [Net.WebRequest]::Create($options.Url)
                 $request.ClientCertificates.Add($this.Cert) | Out-Null
 		$request.Headers.Add("x-ms-version", "2013-08-01") | Out-Null
+
+		if($null -ne $options.Timeout){
+			$request.Timeout = $options.Timeout
+		}
 
 		if($null -eq $options.ContentType) {
 			$request.ContentType = "application/xml"
@@ -33,36 +41,52 @@ function new_azure_rest_client ($subscriptionId, $cert) {
                         $requestStream.Write($byteArray, 0, $byteArray.Length) | Out-Null
                         $requestStream.Close() | Out-Null
                 }
-                
-               	$response = $null 
+
+		$request
+	}
+        $obj | Add-Member -Type ScriptMethod -Name Request -Value { param ($options)
                 $result = $null
-                
-                try {
-			$response = $request.GetResponse()
-			if($options.OnResponse -ne $null) {
-				$result = & $options.OnResponse $response
+		$numberOfRetries = 0
+		$running = $true
+               
+	      	while($running) {
+			$request = $this._createRequest($options)
+			$response = $null 
+			try {
+				$response = $request.GetResponse()
+				if($options.OnResponse -ne $null) {
+					$result = & $options.OnResponse $response
+				}
+				$running = $false	
 			}
-                }
-		catch [Net.WebException] {
-			if($null -ne $_.Exception.Response) {
-				$stream = $_.Exception.Response.GetResponseStream()
-				$reader = New-Object IO.StreamReader($stream)
-				$result = $reader.ReadToEnd()
-				$stream.Close()
-				$reader.Close()
-				Write-Host $result
+			catch [Net.WebException] {
+				if($_.Exception.Status -eq [Net.WebExceptionStatus]::Timeout) {
+					if(!($numberOfRetries -lt $options.RetryCount)) {
+						throw $_
+					}
+					$numberOfRetries++
+					Write-Host "Retrying request due to timeout. Attempt $numberOfRetries of $($options.RetryCount)"
+				} else {
+					if($null -ne $_.Exception.Response) {
+						$stream = $_.Exception.Response.GetResponseStream()
+						$reader = New-Object IO.StreamReader($stream)
+						$result = $reader.ReadToEnd()
+						$stream.Close()
+						$reader.Close()
+						Write-Host $result
+					}
+					throw $_
+				}
+			} catch { 
+				throw $_
+			} finally {
+				if($null -ne $response) {
+					$response.Close() | Out-Null
+				}
 			}
-			throw $_
+			
+			$result
 		}
-                catch { 
-                        throw $_ 
-                } finally {
-			if($null -ne $response) {
-				$response.Close() | Out-Null
-			}
-                }
-                
-                $result
         }
 	$obj | Add-Member -Type ScriptMethod ExecuteOperation { param ($verb, $resource, $content)
 		$this.ExecuteOperation2(@{ Verb = $verb; Resource = $resource; Content = $content; })
@@ -74,7 +98,7 @@ function new_azure_rest_client ($subscriptionId, $cert) {
 		$operationResult = $null	
 		$status = $null
 		while ($true) {
-			$operationResult = $this.Request(@{ Verb = "GET"; Resource = "operations/$($serviceResult.OperationId)"; OnResponse = $parse_xml; })
+			$operationResult = $this.Request(@{ Verb = "GET"; Resource = "operations/$($serviceResult.OperationId)"; OnResponse = $parse_xml; RetryCount = 3; })
 			$status = $operationResult.Operation.Status
 			Write-Host $status
 			if($operationResult.Body -ne $null) {
