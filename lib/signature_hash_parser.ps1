@@ -1,3 +1,5 @@
+$ErrorActionPreference = "stop"
+
 function new_signature_hash_parser { param($storageKey)
 	$obj = New-Object PSObject -Property @{ StorageKey = $storageKey }
 	$obj | Add-Member -Type ScriptMethod execute { param ($params)

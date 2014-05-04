@@ -1,8 +1,10 @@
+$ErrorActionPreference = "stop"
+
 function new_storage_client { param($storageName, $storageKey, $parsers, $clientType)
 	$paramsParser = new_composite_parser $parsers
 
-	$requestHandler = new_request_handler (new_request_builder $storageName)
-	$optionsPatcher = new_options_patcher $storageName "2013-08-15" 3 $clientType
+	$requestHandler = new_request_handler (new_request_builder $storageName) (new_retry_handler)
+	$optionsPatcher = new_options_patcher $storageName "2013-08-15" 3 $clientType "https"
 	
 	$obj = New-Object PSObject -Property @{
 		ParamsParser = $paramsParser;

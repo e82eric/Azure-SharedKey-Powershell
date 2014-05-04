@@ -1,3 +1,5 @@
+$ErrorActionPreference = "stop"
+
 $libDir = (Resolve-Path .\).Path
 
 . "$libDir\uri_parser.ps1"
@@ -13,6 +15,7 @@ $libDir = (Resolve-Path .\).Path
 . "$libDir\response_handlers.ps1"
 . "$libDir\authorization_header_parser.ps1"
 . "$libDir\storage_client.ps1"
+. "$libDir\retry_handler.ps1"
 
 function new_blob_storage_client { param($storageName, $storageKey)
 	$clientType = "blob"

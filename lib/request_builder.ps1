@@ -1,3 +1,5 @@
+$ErrorActionPreference = "stop"
+
 function new_request_builder { param($storageName)
 	$obj = New-Object PSObject -Property @{ StorageName = $storageName }
 	$obj | Add-Member -Type ScriptMethod _use_disposeable { param($disposeable, $useFunc)

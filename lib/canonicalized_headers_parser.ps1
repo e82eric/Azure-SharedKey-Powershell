@@ -1,3 +1,5 @@
+$ErrorActionPreference = "stop"
+
 function new_canonicalized_headers_parser {
 	$obj = New-Object PSObject
 	$obj | Add-Member -Type ScriptMethod execute { param ($params)

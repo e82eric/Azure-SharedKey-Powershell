@@ -1,3 +1,5 @@
+$ErrorActionPreference = "stop"
+
 $libDir = (Resolve-Path .\).Path
 
 . "$libDir\uri_parser.ps1"
@@ -19,7 +21,7 @@ function new_table_storage_client { param($storageName, $storageKey)
 	$parsers = New-Object Collections.ArrayList
 	$parsers.Add((new_uri_parser $clientType)) | Out-Null
 	$parsers.Add((new_ms_headers_parser)) | Out-Null
-	$parsers.Add((new_table_canonicalized_resources_parser)) | Out-Null
+	$parsers.Add((new_table_canonicalized_resources_parser $storageName)) | Out-Null
 	$parsers.Add((new_table_signature_parser)) | Out-Null
 	$parsers.Add((new_signature_hash_parser $storageKey)) | Out-Null
 	$parsers.Add((new_authorization_header_parser $storageName)) | Out-Null

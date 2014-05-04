@@ -1,3 +1,5 @@
+$ErrorActionPreference = "stop"
+
 function new_table_signature_parser {
 	$obj = New-Object PSObject
 	$obj | Add-Member -Type ScriptMethod execute { param ($params)

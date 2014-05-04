@@ -1,3 +1,5 @@
+$ErrorActionPreference = "stop"
+
 function new_uri_parser { param($clientType)
 	$obj = New-Object PSObject -Property @{ ClientType = $clientType }
 	$obj | Add-Member -Type ScriptMethod -Name _splitParameter -Value { param ($parameterString)

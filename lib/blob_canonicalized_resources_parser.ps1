@@ -1,3 +1,5 @@
+$ErrorActionPreference = "stop"
+
 function new_blob_canonicalized_resources_parser { param($storageName)
 	$obj = New-Object PSObject -Property @{ StorageName = $storageName }
 	$obj | Add-Member -Type ScriptMethod _createOperationsString { param ($operations)
