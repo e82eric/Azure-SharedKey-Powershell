@@ -13,6 +13,13 @@ function new_ms_headers_parser {
 			$blobHeader = @{ name = "x-ms-blob-type"; value = $options.BlobType }
 			$result = $result + $blobHeader
 		}
+		if($null -ne $options.MsHeaders) {
+			$options.MsHeaders | % {
+				if($_.name.StartsWith("x-ms")) {
+					$result += $_
+				}
+			}
+		}
 		$params.MsHeaders = $result
 	}
 	$obj
