@@ -46,6 +46,10 @@ function new_request_builder { param($storageName)
 		}
 
 		$request.Headers.Add("Authorization", $params.AuthorizationHeader) | Out-Null
+
+		if($null -ne $options.Headers) {
+			$options.Headers | % { $request.Headers.Add($_.name, $_.value) | Out-Null }
+		}
 		
 		if($null -ne $content) {
 			if($content -is [string]) {
