@@ -23,7 +23,11 @@ function create_storage_account { param($name, $dataCenter)
 }
 
 function delete_storage_account { param($name)
-	$result = $script:restClient.Request(@{ Verb = "GET"; Resource = "services/storageservices"; OnResponse = $parse_xml; })
+	$result = $script:restClient.Request(@{
+		Verb = "GET";
+		Resource = "services/storageservices";
+		OnResponse = $parse_xml;
+	})
 	$resource = $result.StorageServices.StorageService | ? { $_.ServiceName -eq $name }
 
 	if($resource -ne $null) {
@@ -32,36 +36,81 @@ function delete_storage_account { param($name)
 }
 
 function get_storage_key { param($name)
-	$result = $script:restClient.Request(@{ Verb = "GET"; Resource = "services/storageservices/$name/keys"; OnResponse = $parse_xml })
+	$result = $script:restClient.Request(@{
+		Verb = "GET";
+		Resource = "services/storageservices/$name/keys";
+		OnResponse = $parse_xml
+	})
 	$result.StorageService.StorageServiceKeys.Secondary
 }
 
 function create_table { param($tableName, $tableClient)
-	$tableClient.Request(@{ Verb = "POST"; ContentType = "application/json"; Accept = "application/json;odata=nometadata"; Resource = "tables"; Content = "{`"TableName`":`"$tableName`"}" })
+	$tableClient.Request(@{
+		Verb = "POST";
+		ContentType = "application/json";
+		Accept = "application/json;odata=nometadata";
+		Resource = "tables";
+		Content = "{`"TableName`":`"$tableName`"}" 
+	})
 }
 
 function delete_table { param($tableName, $tableClient)
-	$tableClient.Request(@{ Verb = "DELETE"; ContentType = "application/json"; Accept = "application/json;odata=nometadata"; Resource = "tables('$tableName')"; Content = "{`"TableName`":`"$tableName`"}" })
+	$tableClient.Request(@{
+		Verb = "DELETE";
+		ContentType = "application/json";
+		Accept = "application/json;odata=nometadata";
+		Resource = "tables('$tableName')";
+		Content = "{`"TableName`":`"$tableName`"}"
+	})
 }
 
 function insert_entity { param($tableName, $entity, $tableClient)
-	$tableClient.Request(@{ Verb = "POST"; ContentType = "application/json"; Accept = "application/json;odata=nometadata"; Resource = $tableName; Content = $entity })
+	$tableClient.Request(@{
+		Verb = "POST";
+		ContentType = "application/json";
+		Accept = "application/json;odata=nometadata";
+		Resource = $tableName;
+		Content = $entity
+	})
 }
 
 function merge_entity { param($tableName, $partitionKey, $rowKey, $entity, $tableClient)
-	$tableClient.Request(@{ Verb = "MERGE"; ContentType = "application/json"; Accept = "application/json;odata=nometadata"; Resource = "$tableName(PartitionKey='$partitionKey',RowKey='$rowKey')"; Content = $entity })
+	$tableClient.Request(@{
+		Verb = "MERGE";
+		ContentType = "application/json";
+		Accept = "application/json;odata=nometadata";
+		Resource = "$tableName(PartitionKey='$partitionKey',RowKey='$rowKey')";
+		Content = $entity
+	})
 }
 
 function update_entity { param($tableName, $partitionKey, $rowKey, $entity, $tableClient)
-	$tableClient.Request(@{ Verb = "PUT"; ContentType = "application/json"; Accept = "application/json;odata=nometadata"; Resource = "$tableName(PartitionKey='$partitionKey',RowKey='$rowKey')"; Content = $entity })
+	$tableClient.Request(@{
+		Verb = "PUT";
+		ContentType = "application/json";
+		Accept = "application/json;odata=nometadata";
+		Resource = "$tableName(PartitionKey='$partitionKey',RowKey='$rowKey')";
+		Content = $entity
+	})
 }
 
 function delete_entity { param($tableName, $partitionKey, $rowKey, $tableClient)
-	$tableClient.Request(@{ Verb = "DELETE"; Resource = "$tableName(PartitionKey='$partitionKey',RowKey='$rowKey')"; Headers = @(@{ name = "If-Match"; value = "*"}) })
+	$tableClient.Request(@{
+		Verb = "DELETE";
+		Resource = "$tableName(PartitionKey='$partitionKey',RowKey='$rowKey')";
+		Headers = @(@{ name = "If-Match"; value = "*"})
+	})
 }
 
 function query_entities { param($resource, $tableClient)
-	$result = $tableClient.Request(@{ Verb = "GET"; ContentType = "application/json"; Accept = "application/json;odata=nometadata"; Resource = $resource; Content = $entity; ProcessResponse = $parse_json })
+	$result = $tableClient.Request(@{
+		Verb = "GET";
+		ContentType = "application/json";
+		Accept = "application/json;odata=nometadata";
+		Resource = $resource;
+		Content = $entity;
+		ProcessResponse = $parse_json
+	})
 
 	$entities = $result 
 
@@ -75,7 +124,14 @@ function query_entities { param($resource, $tableClient)
 }
 
 function query_tables { param($tableClient)
-	$result = $tableClient.Request(@{ Verb = "GET"; ContentType = "application/json"; Accept = "application/json;odata=nometadata"; Resource = "tables()"; Content = $entity; ProcessResponse = $parse_json })
+	$result = $tableClient.Request(@{
+		Verb = "GET";
+		ContentType = "application/json";
+		Accept = "application/json;odata=nometadata";
+		Resource = "tables()";
+		Content = $entity;
+		ProcessResponse = $parse_json
+	})
 
 	$entities = $result 
 
@@ -88,13 +144,13 @@ function query_tables { param($tableClient)
 	}
 }
 
-#create_storage_account $storageAccountName $dataCenter
+create_storage_account $storageAccountName $dataCenter
 $storageKey = get_storage_key $storageAccountName
 $tableClient = new_table_storage_client $storageAccountName $storageKey
 
 $tableName = "atest"
-#create_table $tableName $tableClient
-#insert_entity $tableName '{ "Name":"n1","RowKey":"1","PartitionKey":"1" }' $tableClient
+create_table $tableName $tableClient
+insert_entity $tableName '{ "Name":"n1","RowKey":"1","PartitionKey":"1" }' $tableClient
 merge_entity $tableName "1" "1" '{ "Name":"n2","RowKey":"1","PartitionKey":"1" }' $tableClient
 merge_entity $tableName "1" "2" '{ "Name":"n2","RowKey":"2","PartitionKey":"1" }' $tableClient
 update_entity $tableName "1" "2" '{ "Name2":"n3","RowKey":"2","PartitionKey":"1" }' $tableClient
@@ -103,5 +159,5 @@ query_entities "$tableName(PartitionKey='1',RowKey='1')" $tableClient
 query_entities "$tableName()?$filter=(Name='n2')" $tableClient
 query_tables $tableClient
 delete_entity $tableName "1" "2" $tableClient
-#delete_table $tableName $tableClient
-#delete_storage_account $storageAccountName
+delete_table $tableName $tableClient
+delete_storage_account $storageAccountName
