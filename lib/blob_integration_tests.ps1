@@ -3,10 +3,11 @@ $ErrorActionPreference = "stop"
 
 $cert = Get-Item cert:\CurrentUser\My\$thumbprint
 
+. "$workingDir\certificate_authentication_handler.ps1"
 . "$workingDir\azure_rest_client.ps1"
 . "$workingDir\blob_storage_client.ps1"
 
-$script:restClient = new_azure_rest_client $subscriptionId $cert
+$script:restClient = new_azure_rest_client $subscriptionId (new_certificate_authentication_handler $cert)
 
 function create_storage_account { param($name, $dataCenter)
 	$storageAccountDef = `
@@ -211,7 +212,7 @@ function copy_blob { param($account, $container, $fileName, $newName, $blobClien
 	})
 }
 
-#create_storage_account $storageAccountName $dataCenter
+create_storage_account $storageAccountName $dataCenter
 $storageKey = get_storage_key $storageAccountName
 $blobClient = new_blob_storage_client $storageAccountName $storageKey
 set_account_properties $blobClient
@@ -219,7 +220,7 @@ get_account_properties $blobClient
 
 $containerName = "acont"
 
-#create_container $containerName $blobClient
+create_container $containerName $blobClient
 list_containers $blobClient
 set_container_acl $containerName $blobClient
 get_container_acl $containerName $blobCLient

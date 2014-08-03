@@ -45,7 +45,15 @@ function new_request_builder { param($storageName)
 			$request.Headers.Add($_.name, $_.value) | Out-Null
 		}
 
-		$request.Headers.Add("Authorization", $params.AuthorizationHeader) | Out-Null
+    if($null -ne $params.AuthorizationHeader) {
+      $request.Headers.Add("Authorization", $params.AuthorizationHeader) | Out-Null
+    } elseif ($null -ne $options.AuthorizationHeader) {
+      $request.Headers.Add("Authorization", $options.AuthorizationHeader) | Out-Null
+    }
+
+    if($null -ne $options.ClientCertificate) {
+      $request.ClientCertificates.Add($options.ClientCertificate) | Out-Null
+    }
 
 		if($null -ne $options.Headers) {
 			$options.Headers | % { $request.Headers.Add($_.name, $_.value) | Out-Null }
