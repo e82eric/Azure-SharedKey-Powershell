@@ -13,11 +13,11 @@ function create_storage_account { param($name, $dataCenter)
 	$storageAccountDef = `
 		"<?xml version=`"1.0`" encoding=`"utf-8`"?>
 		<CreateStorageServiceInput xmlns=`"http://schemas.microsoft.com/windowsazure`">
-		  <ServiceName>$name</ServiceName>
-		  <Description></Description>
-		  <Label>$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($name)))</Label>
-		  <Location>$dataCenter</Location>
-		  <GeoReplicationEnabled>true</GeoReplicationEnabled>
+			<ServiceName>$name</ServiceName>
+			<Description></Description>
+			<Label>$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($name)))</Label>
+			<Location>$dataCenter</Location>
+			<GeoReplicationEnabled>true</GeoReplicationEnabled>
 		</CreateStorageServiceInput>"
 
 	$script:restClient.ExecuteOperation("POST", "services/storageservices", $storageAccountDef)
@@ -106,15 +106,15 @@ function set_account_properties { param($blobClient)
 	$propsDef = `
 	'<?xml version="1.0" encoding="utf-8"?>
 	<StorageServiceProperties>
-	    <Cors>
+			<Cors>
 		<CorsRule>
-		    <AllowedOrigins>http://www.fabrikam.com,http://www.contoso.com</AllowedOrigins>
-		    <AllowedMethods>GET,PUT</AllowedMethods>
-		    <MaxAgeInSeconds>500</MaxAgeInSeconds>
-		    <ExposedHeaders>x-ms-meta-data*,x-ms-meta-customheader</ExposedHeaders>
-		    <AllowedHeaders>x-ms-meta-target*,x-ms-meta-customheader</AllowedHeaders>
+				<AllowedOrigins>http://www.fabrikam.com,http://www.contoso.com</AllowedOrigins>
+				<AllowedMethods>GET,PUT</AllowedMethods>
+				<MaxAgeInSeconds>500</MaxAgeInSeconds>
+				<ExposedHeaders>x-ms-meta-data*,x-ms-meta-customheader</ExposedHeaders>
+				<AllowedHeaders>x-ms-meta-target*,x-ms-meta-customheader</AllowedHeaders>
 		</CorsRule>
-	    </Cors>
+			</Cors>
 	</StorageServiceProperties>'
 
 	$blobClient.Request(@{
@@ -157,14 +157,14 @@ function set_container_acl { param($container, $blobClient)
 	$aclDef = `
 		'<?xml version="1.0" encoding="utf-8"?>
 		<SignedIdentifiers>
-		  <SignedIdentifier> 
-		    <Id>MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=</Id>
-		    <AccessPolicy>
-		      <Start>2009-09-28T08:49:37.0000000Z</Start>
-		      <Expiry>2039-09-29T08:49:37.0000000Z</Expiry>
-		      <Permission>rwd</Permission>
-		    </AccessPolicy>
-		  </SignedIdentifier>
+			<SignedIdentifier> 
+				<Id>MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=</Id>
+				<AccessPolicy>
+					<Start>2009-09-28T08:49:37.0000000Z</Start>
+					<Expiry>2039-09-29T08:49:37.0000000Z</Expiry>
+					<Permission>rwd</Permission>
+				</AccessPolicy>
+			</SignedIdentifier>
 		</SignedIdentifiers>'
 
 	$blobClient.Request(@{

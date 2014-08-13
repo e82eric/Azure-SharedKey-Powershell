@@ -25,10 +25,10 @@ $parse_json = { param($response)
 	$jsonSerializer.DeserializeObject($result)
 }
 $write_response = { param($response)
-  $reqstream = $_.Exception.Response.GetResponseStream()
-  $sr = new-object System.IO.StreamReader $reqstream
-  $result = $sr.ReadToEnd()
-  Write-Host "Response content => $result"
+	$reqstream = $_.Exception.Response.GetResponseStream()
+	$sr = new-object System.IO.StreamReader $reqstream
+	$result = $sr.ReadToEnd()
+	Write-Host "Response content => $result"
 }
 $parse_ms_headers = { param ($response)
 	$result = @()

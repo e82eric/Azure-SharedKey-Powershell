@@ -12,11 +12,11 @@ function create_storage_account { param($name, $dataCenter)
 	$storageAccountDef = `
 		"<?xml version=`"1.0`" encoding=`"utf-8`"?>
 		<CreateStorageServiceInput xmlns=`"http://schemas.microsoft.com/windowsazure`">
-		  <ServiceName>$name</ServiceName>
-		  <Description></Description>
-		  <Label>$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($name)))</Label>
-		  <Location>$dataCenter</Location>
-		  <GeoReplicationEnabled>true</GeoReplicationEnabled>
+			<ServiceName>$name</ServiceName>
+			<Description></Description>
+			<Label>$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($name)))</Label>
+			<Location>$dataCenter</Location>
+			<GeoReplicationEnabled>true</GeoReplicationEnabled>
 		</CreateStorageServiceInput>"
 
 	$script:restClient.ExecuteOperation("POST", "services/storageservices", $storageAccountDef)

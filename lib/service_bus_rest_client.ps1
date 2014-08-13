@@ -30,7 +30,7 @@ function new_service_bus_rest_client { param($namespace, $password)
 		}
 
 		$request = [Net.WebRequest]::Create($options.Url)
-        $request.Method = $options.Verb
+				$request.Method = $options.Verb
 
 		if($null -ne $options.Headers) {
 			$options.Headers | % { $request.Headers.Add($_.name, $_.value) }

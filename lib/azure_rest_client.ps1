@@ -7,16 +7,16 @@ $ErrorActionPreference = "stop"
 . "$restLibDir\response_handlers.ps1"
 
 function new_azure_rest_client ($subscriptionId, $authHandler) {
-  $requestBuilder = new_request_builder
-  $retryHandler = new_retry_handler $write_response
-  $requestHandler = new_request_handler $requestBuilder $retryHandler
+	$requestBuilder = new_request_builder
+	$retryHandler = new_retry_handler $write_response
+	$requestHandler = new_request_handler $requestBuilder $retryHandler
 
 	$obj = New-Object PSObject -Property @{ AuthHandler = $authHandler; SubscriptionId = $subscriptionId; RequestHandler = $requestHandler }
-  $obj | Add-Member -Type ScriptMethod -Name Request -Value { param ($options)
-    if($null -eq $options.Url) {
-      $options.Url = "https://management.core.windows.net/$($this.subscriptionId)/$($options.Resource)"
-    }
-    $this.AuthHandler.Handle($options)
+	$obj | Add-Member -Type ScriptMethod -Name Request -Value { param ($options)
+		if($null -eq $options.Url) {
+			$options.Url = "https://management.core.windows.net/$($this.subscriptionId)/$($options.Resource)"
+		}
+		$this.AuthHandler.Handle($options)
 
 		if($null -eq $options.RetryCount) {
 			$options.RetryCount = 3
@@ -30,23 +30,23 @@ function new_azure_rest_client ($subscriptionId, $authHandler) {
 			$options.ContentType = "application/xml"
 		} 
 
-    if($null -eq $options.Headers) {
-      $options.Headers = @()
-    }
+		if($null -eq $options.Headers) {
+			$options.Headers = @()
+		}
 
-    if($null -eq $options.ProcessResponse) {
-      $options.ProcessResponse = $options.OnResponse
-    }
+		if($null -eq $options.ProcessResponse) {
+			$options.ProcessResponse = $options.OnResponse
+		}
 
-    $options.Headers += @{ name = "x-ms-version"; value = "2013-08-01" }
+		$options.Headers += @{ name = "x-ms-version"; value = "2013-08-01" }
 
-    $params = @{
-      MsHeaders = @();
-      Options = $options
-    }
+		$params = @{
+			MsHeaders = @();
+			Options = $options
+		}
 
-    $this.RequestHandler.Execute($params)
-  }
+		$this.RequestHandler.Execute($params)
+	}
 	$obj | Add-Member -Type ScriptMethod ExecuteOperation { param ($verb, $resource, $content)
 		$this.ExecuteOperation2(@{ Verb = $verb; Resource = $resource; Content = $content; })
 	}
@@ -76,25 +76,25 @@ function new_azure_rest_client ($subscriptionId, $authHandler) {
 	}
 	$obj
 }
-                
+								
 $parse_operation_xml = { param ($response)
 	$operationId = $response.Headers.Get("x-ms-request-id")
-  $stream = $response.GetResponseStream()
-  $reader = New-Object IO.StreamReader($stream)
-  $result = $reader.ReadToEnd()
-  $stream.Close()
-  $reader.Close()
-  $body = [xml]$result
+	$stream = $response.GetResponseStream()
+	$reader = New-Object IO.StreamReader($stream)
+	$result = $reader.ReadToEnd()
+	$stream.Close()
+	$reader.Close()
+	$body = [xml]$result
 	@{ Body = $body; OperationId = $operationId }
 }
 
 $parse_operation_id = { param ($response)
 	$operationId = $response.Headers.Get("x-ms-request-id")
-  $stream = $response.GetResponseStream()
-  $reader = New-Object IO.StreamReader($stream)
-  $result = $reader.ReadToEnd()
-  $stream.Close()
-  $reader.Close()
-  $body = $result
+	$stream = $response.GetResponseStream()
+	$reader = New-Object IO.StreamReader($stream)
+	$result = $reader.ReadToEnd()
+	$stream.Close()
+	$reader.Close()
+	$body = $result
 	@{ Body = $body; OperationId = $operationId }
 }
