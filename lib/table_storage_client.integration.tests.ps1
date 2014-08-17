@@ -3,10 +3,10 @@ $ErrorActionPreference = "stop"
 
 $cert = Get-Item cert:\CurrentUser\My\$thumbprint
 
-. "$workingDir\azure_rest_client.ps1"
+. "$workingDir\management_rest_client.ps1"
 . "$workingDir\table_storage_client.ps1"
 
-$script:restClient = new_azure_rest_client $subscriptionId $cert
+$script:restClient = new_management_rest_client_with_cert_auth $subscriptionId $cert
 
 function create_storage_account { param($name, $dataCenter)
 	$storageAccountDef = `
@@ -16,7 +16,7 @@ function create_storage_account { param($name, $dataCenter)
 			<Description></Description>
 			<Label>$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($name)))</Label>
 			<Location>$dataCenter</Location>
-			<GeoReplicationEnabled>true</GeoReplicationEnabled>
+			<AccountType>Standard_LRS</AccountType>
 		</CreateStorageServiceInput>"
 
 	$script:restClient.ExecuteOperation("POST", "services/storageservices", $storageAccountDef)

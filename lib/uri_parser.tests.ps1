@@ -54,66 +54,61 @@ Describe "parse uri" {
 	$clientType = "type1"
 	$parser = new_uri_parser $clientType
 	Context "when there are no operations and the resource is a container" {
-		$params = @{ Options = @{Url = "http://AccountName1.$clientType.core.windows.net/resource" } }
-		$parser.execute($params)
+		$result = $parser.execute("http://AccountName1.$clientType.core.windows.net/resource" )
 		It "parses the account name out of the start of the uri" {
-			$params.Account | should equal "AccountName1"
+			$result.Account | should equal "AccountName1"
 		}
 		It "parses the name from the end of the uri" {
-			$params.Resource | should equal "resource"
+			$result.Resource | should equal "resource"
 		}
 		It "returns null for operation" {
-			$params.Operations | should equal $null 
+			$result.Operations | should equal $null 
 		}
 	}
 	Context "when there are no operations and the resource is a blob" {
-		$params = @{ Options = @{ Url = "http://AccountName1.$clientType.core.windows.net/container/blob" } }
-		$parser.execute($params)
+		$result = $parser.execute("http://AccountName1.$clientType.core.windows.net/container/blob" )
 		It "parses the account name out of the start of the uri" {
-			$params.Account | should equal "AccountName1"
+			$result.Account | should equal "AccountName1"
 		}	
 		It "uses the end the url for the resource" {
-			$params.Resource | should equal "container/blob"
+			$result.Resource | should equal "container/blob"
 		}	
 		It "returns null for operation" {
-			$params.Operations | should equal $null 
+			$result.Operations | should equal $null 
 		}
 	}
 	Context "when there is one operation and the resource is a blob" {
-		$params = @{ Options = @{ Url = "http://AccountName1.$clientType.core.windows.net/container/blob?comp=list" } }
 		$expectedOperations = "operations1"
 		$parser | Add-member -Type ScriptMethod _splitParameters { param($queryString) if($queryString -ne "comp=list") { throw } return $expectedOperations } -Force
-		$parser.execute($params)
+		$result = $parser.execute("http://AccountName1.$clientType.core.windows.net/container/blob?comp=list")
 		It "parses the account name out of the start of the uri" {
-			$params.Account | should equal "AccountName1"
+			$result.Account | should equal "AccountName1"
 		}	
 		It "uses the end the url before the ? for the resource" {
-			$params.Resource | should equal "container/blob"
+			$result.Resource | should equal "container/blob"
 		}	
 		It "parses the name and value of the operation between the =" {
-			$params.Operations | should equal $expectedOperations
+			$result.Operations | should equal $expectedOperations
 		}
 	}
 	Context "when there is two operations and the resource is a blob" {
-		$params = @{ Options = @{ Url = "http://AccountName1.$clientType.core.windows.net/container/blob?restype=container&comp=list" } }
 		$expectedOperations = "operations2"
 		$parser | Add-member -Type ScriptMethod _splitParameters { param($queryString) if($queryString -ne "restype=container&comp=list") { throw } return $expectedOperations } -Force
-		$parser.execute($params)
+		$result = $parser.execute("http://AccountName1.$clientType.core.windows.net/container/blob?restype=container&comp=list")
 		It "parses the name and value of the operation between the =" {
-			$params.Operations | should equal $expectedOperations 
+			$result.Operations | should equal $expectedOperations 
 		}
 	}
 	Context "when the scheme is https" {
-		$params = @{ Options = @{ Url = "http://AccountName1.$clientType.core.windows.net/resource" } }
-		$parser.execute($params)
+		$result = $parser.execute("http://AccountName1.$clientType.core.windows.net/resource")
 		It "parses the account name out of the start of the uri" {
-			$params.Account | should equal "AccountName1"
+			$result.Account | should equal "AccountName1"
 		}
 		It "parses the name from the end of the uri" {
-			$params.Resource | should equal "resource"
+			$result.Resource | should equal "resource"
 		}
 		It "returns null for operation" {
-			$params.Operations | should equal $null 
+			$result.Operations | should equal $null 
 		}
 	}
 }

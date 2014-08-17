@@ -5,48 +5,47 @@ $ErrorActionPreference = "stop"
 . "$restLibDir\retry_handler.ps1"
 . "$restLibDir\request_handler.ps1"
 . "$restLibDir\response_handlers.ps1"
+. "$restLibDir\management_options_patcher.ps1"
+. "$restLibDir\client_certificate_patcher.ps1"
+. "$restLibDir\rest_client.ps1"
+. "$restLibDir\simple_options_patcher.ps1"
+. "$restLibDir\config.ps1"
 
-function new_azure_rest_client ($subscriptionId, $authHandler) {
-	$requestBuilder = new_request_builder
-	$retryHandler = new_retry_handler $write_response
-	$requestHandler = new_request_handler $requestBuilder $retryHandler
+function new_management_rest_client_with_cert_auth { 
+	param(
+		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
+		[ValidateNotNullOrEmpty()]$cert=$(throw "cert is mandatory")
+	)	
+	$authenticationHandler = new_client_certificate_patcher $cert
+	new_management_rest_client $subscriptionId $authenticationHandler	
+}
 
-	$obj = New-Object PSObject -Property @{ AuthHandler = $authHandler; SubscriptionId = $subscriptionId; RequestHandler = $requestHandler }
-	$obj | Add-Member -Type ScriptMethod -Name Request -Value { param ($options)
-		if($null -eq $options.Url) {
-			$options.Url = "https://management.core.windows.net/$($this.subscriptionId)/$($options.Resource)"
-		}
-		$this.AuthHandler.Handle($options)
+function new_management_rest_client {
+	param(
+		$subscriptionId=$(throw "subscriptionId is mandatory"),
+		$authenticationHandler=$(throw "authenticationHandler is mandatory"),
+		$defaultVersion = $(__.azure.rest.get_config "management_version"),
+		$defaultScheme = $(__.azure.rest.get_config "scheme"),
+		$defaultRetryCount = $(__.azure.rest.get_config "retry_count"),
+		$defaultContentType = $(__.azure.rest.get_config "management_content_type"),
+		$defaultTimeout = $(__.azure.rest.get_config "timeout")
+	)
 
-		if($null -eq $options.RetryCount) {
-			$options.RetryCount = 3
-		}
+	$requestHandler = new_request_handler (new_request_builder) (new_retry_handler $write_response)
 
-		if($null -ne $options.Timeout){
-			$request.Timeout = $options.Timeout
-		}
+	$baseOptionsPatcher = new_simple_options_patcher `
+		$defaultRetryCount `
+		$defaultScheme `
+		$defaultContentType `
+		$defaultTimeout
 
-		if($null -eq $options.ContentType) {
-			$options.ContentType = "application/xml"
-		} 
+	$optionsPatcher = new_management_options_patcher `
+		$subscriptionId `
+		$defaultVersion `
+		$authenticationHandler `
+		$baseOptionsPatcher
 
-		if($null -eq $options.Headers) {
-			$options.Headers = @()
-		}
-
-		if($null -eq $options.ProcessResponse) {
-			$options.ProcessResponse = $options.OnResponse
-		}
-
-		$options.Headers += @{ name = "x-ms-version"; value = "2013-08-01" }
-
-		$params = @{
-			MsHeaders = @();
-			Options = $options
-		}
-
-		$this.RequestHandler.Execute($params)
-	}
+	$obj = new_rest_client $requestHandler $optionsPatcher $authenticationHandler
 	$obj | Add-Member -Type ScriptMethod ExecuteOperation { param ($verb, $resource, $content)
 		$this.ExecuteOperation2(@{ Verb = $verb; Resource = $resource; Content = $content; })
 	}

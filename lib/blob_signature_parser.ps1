@@ -2,20 +2,20 @@ $ErrorActionPreference = "stop"
 
 function new_blob_signature_parser {
 	$obj = New-Object PSObject
-	$obj | Add-Member -Type ScriptMethod execute { param($params)
-		$options = $params.Options
-		$verb = $options.Verb.ToUpper()
+	$obj | Add-Member -Type ScriptMethod execute {
+		param(
+			[ValidateNotNullOrEmpty()]$verb=$(throw "verb is mandatory"),
+			$content,
+			$contentHash,
+			$contentType,
+			[ValidateNotNullOrEmpty()]$canonicalizedHeaders=$(throw "canonicalizedHeaders is mandatory"),
+			[ValidateNotNullOrEmpty()]$canonicalizedResources=$(throw "canonicalizedResources is mandatory")
+		)
 		$contentLength = $null
-		if($null -ne $options.Content) {
-			$contentLength = $options.Content.Length
+		if($null -ne $content) {
+			$contentLength = $content.Length
 		}
-		$contentHash = $options.ContentHash
-		$contentType = $options.ContentType 
-		$date = $params.DateHeader.Value
-		$canonicalizedResources = $params.CanonicalizedResources
-		$canonicalizedHeaders = $params.CanonicalizedHeaders
-		
-		$params.Signature = "$verb`n`n`n$contentLength`n$contentHash`n$contentType`n`n`n`n`n`n`n$canonicalizedHeaders`n$canonicalizedResources"
+		"$verb`n`n`n$contentLength`n$contentHash`n$contentType`n`n`n`n`n`n`n$canonicalizedHeaders`n$canonicalizedResources"
 	}
 	$obj
 }

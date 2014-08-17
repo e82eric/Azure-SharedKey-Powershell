@@ -1,7 +1,7 @@
 $ErrorActionPreference = "stop"
 
-function new_request_builder { param($storageName)
-	$obj = New-Object PSObject -Property @{ StorageName = $storageName }
+function new_request_builder {
+	$obj = New-Object PSObject
 	$obj | Add-Member -Type ScriptMethod _use_disposeable { param($disposeable, $useFunc)
 		try {
 			& $useFunc
@@ -15,10 +15,8 @@ function new_request_builder { param($storageName)
 			}
 		}
 	}
-	$obj | Add-Member -Type ScriptMethod execute { param($params)
-		$options = $params.Options
+	$obj | Add-Member -Type ScriptMethod execute { param($options)
 		$content = $options.Content
-		$contentType = $null
 		$contentLength = 0
 		
 		if($null -ne $content) {
@@ -41,13 +39,7 @@ function new_request_builder { param($storageName)
 		
 		$request.Method = $options.Verb
 		
-		$params.MsHeaders | % {
-			$request.Headers.Add($_.name, $_.value) | Out-Null
-		}
-
-		if($null -ne $params.AuthorizationHeader) {
-			$request.Headers.Add("Authorization", $params.AuthorizationHeader) | Out-Null
-		} elseif ($null -ne $options.AuthorizationHeader) {
+		if($null -ne $options.AuthorizationHeader) {
 			$request.Headers.Add("Authorization", $options.AuthorizationHeader) | Out-Null
 		}
 

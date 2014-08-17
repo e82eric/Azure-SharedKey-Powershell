@@ -2,25 +2,22 @@ $ErrorActionPreference = "stop"
 
 function new_ms_headers_parser {
 	$obj = New-Object PSObject
-	$obj | Add-Member -Type ScriptMethod execute { param($params)
-		$options = $params.Options
-
-		$now = [DateTime]::UtcNow.ToString("R", [Globalization.CultureInfo]::InvariantCulture)
-		$dateHeader = @{ name = "x-ms-date"; value = $now }
-		$versionHeader = @{ name = "x-ms-version"; value = $options.Version }
-		$result = @($dateHeader, $versionHeader)
-		if($null -ne $options.BlobType) {
-			$blobHeader = @{ name = "x-ms-blob-type"; value = $options.BlobType }
-			$result = $result + $blobHeader
+	$obj | Add-Member -Type ScriptMethod _now {
+		[DateTime]::UtcNow.ToString("R", [Globalization.CultureInfo]::InvariantCulture)
+	}
+	$obj | Add-Member -Type ScriptMethod execute { param($options)
+		if($null -eq $options.Headers) {
+			$options.Headers = @()
 		}
-		if($null -ne $options.MsHeaders) {
-			$options.MsHeaders | % {
-				if($_.name.StartsWith("x-ms")) {
-					$result += $_
-				}
-			}
+		if($null -eq ($options.Headers | ? { $_.name -eq "x-ms-date" })) {
+			$options.Headers += @{ name = "x-ms-date"; value = $this._now() }
 		}
-		$params.MsHeaders = $result
+		if($null -eq ($options.Headers | ? { $_.name -eq "x-ms-version" })) {
+			$options.Headers += @{ name = "x-ms-version"; value = $options.Version }
+		}
+		if($null -eq ($options.Headers | ? { $_.name -eq "x-ms-blob-type" }) -and $null -ne $options.BlobType) {
+			$options.Headers += @{ name = "x-ms-blob-type"; value = $options.BlobType }
+		}
 	}
 	$obj
 }

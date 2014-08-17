@@ -3,11 +3,10 @@ $ErrorActionPreference = "stop"
 
 $cert = Get-Item cert:\CurrentUser\My\$thumbprint
 
-. "$workingDir\certificate_authentication_handler.ps1"
-. "$workingDir\azure_rest_client.ps1"
+. "$workingDir\management_rest_client.ps1"
 . "$workingDir\blob_storage_client.ps1"
 
-$script:restClient = new_azure_rest_client $subscriptionId (new_certificate_authentication_handler $cert)
+$script:restClient = new_management_rest_client_with_cert_auth $subscriptionId $cert
 
 function create_storage_account { param($name, $dataCenter)
 	$storageAccountDef = `
@@ -17,7 +16,7 @@ function create_storage_account { param($name, $dataCenter)
 			<Description></Description>
 			<Label>$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($name)))</Label>
 			<Location>$dataCenter</Location>
-			<GeoReplicationEnabled>true</GeoReplicationEnabled>
+			<AccountType>Standard_LRS</AccountType>
 		</CreateStorageServiceInput>"
 
 	$script:restClient.ExecuteOperation("POST", "services/storageservices", $storageAccountDef)
@@ -138,7 +137,7 @@ function set_container_metadata { param($container, $metadata, $blobClient)
 	$blobClient.Request(@{
 		Verb = "PUT";
 		Resource = "$($container)?restype=container&comp=metadata";
-		MsHeaders = $metadata;
+		Headers = $metadata;
 		Content = (New-Object byte[] 0)
 	})
 }
@@ -188,7 +187,7 @@ function set_blob_metadata { param($container, $fileName, $metadata, $blobClient
 	$blobClient.Request(@{
 		Verb = "PUT";
 		Resource = "$container/$($fileName)?comp=metadata";
-		MsHeaders = $metadata;
+		Headers = $metadata;
 		Content = (New-Object byte[] 0)
 	})
 }
@@ -207,7 +206,7 @@ function copy_blob { param($account, $container, $fileName, $newName, $blobClien
 	$blobClient.Request(@{
 		Verb = "PUT";
 		Resource = "$container/$newName";
-		MsHeaders = @(@{ name = "x-ms-copy-source"; value = "https://$($account).blob.core.windows.net/$container/$fileName" });
+		Headers = @(@{ name = "x-ms-copy-source"; value = "https://$($account).blob.core.windows.net/$container/$fileName" });
 		Content = (New-Object byte[] 0)
 	})
 }

@@ -7,12 +7,18 @@ function new_blob_canonicalized_resources_parser { param($storageName)
 		if($operations.Length -eq 0) { return [String]::Empty }
 		[String]::Join("`n", $($operations | %	{"$($_.Name.ToLower()):$($_.Value)" } | Sort))
 	}
-	$obj | Add-Member -Type ScriptMethod execute { param($params)
-		$operationsString= $this._createOperationsString($params.Operations)
+	$obj | Add-Member -Type ScriptMethod execute { 
+		param(
+			$operations=$(throw "operations is mandatory"),
+			$resource=$(throw "resource is mandatory")
+		)
+		$operationsString= $this._createOperationsString($operations)
 		if($operationsString -eq [string]::empty) { 
-			$params.CanonicalizedResources = "/$($this.StorageName)/$($params.Resource)" 
+			#return
+			"/$($this.StorageName)/$($resource)" 
 		} else { 
-			$params.CanonicalizedResources ="/$($this.StorageName)/$($params.Resource)`n$operationsString"
+			#return
+			"/$($this.StorageName)/$($resource)`n$operationsString"
 		}
 	}
 	$obj

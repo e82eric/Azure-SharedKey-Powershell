@@ -1,12 +1,14 @@
 $ErrorActionPreference = "stop"
 
-function new_options_patcher { param($storageName, $version, $retryCount, $clientType, $defaultScheme)
+function new_options_patcher { param($storageName, $version, $retryCount, $clientType, $defaultScheme, $msHeadersPatcher, $authorizationHeaderPatcher)
 	$obj = New-Object PSObject -Property @{ 
 		StorageName = $storageName;
 		Version = $version;
 		RetryCount = $retryCount;
 		ClientType = $clientType;
 		DefaultScheme = $defaultScheme;
+		MsHeadersPatcher = $msHeadersPatcher;
+		AuthorizationHeaderPatcher = $authorizationHeaderPatcher;
 	}
 	$obj | Add-Member -Type ScriptMethod execute { param($options)
 		if($null -eq $options.Scheme) {
@@ -20,6 +22,12 @@ function new_options_patcher { param($storageName, $version, $retryCount, $clien
 		}
 		if($null -eq $options.Version) {
 			$options.Version = $this.Version
+		}
+
+		$this.MsHeadersPatcher.execute($options)
+
+		if($null -eq $options.AuthorizationHeader) {
+			$this.AuthorizationHeaderPatcher.execute($options)
 		}
 	}
 	$obj

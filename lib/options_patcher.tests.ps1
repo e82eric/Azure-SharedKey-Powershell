@@ -8,8 +8,12 @@ $retryCount = 2
 $clientType = "type1"
 $defaultScheme = "scheme1"
 $storageName = "account1"
+$msHeadersPatcher = New-Object PSObject
+$msHeadersPatcher | Add-Member -Type ScriptMethod execute { param($options) }
+$authorizationHeaderPatcher = New-Object PSObject
+$authorizationHeaderPatcher | Add-Member -Type ScriptMethod execute { param($options) }
 
-$patcher = new_options_patcher $storageName $version $retryCount $clientType $defaultScheme $storageName
+$patcher = new_options_patcher $storageName $version $retryCount $clientType $defaultScheme $msHeadersPatcher $authorizationHeaderPatcher
 
 Describe "the url is not provided in the options" {
 	It "uses the storage name in the url" {
@@ -73,7 +77,7 @@ Describe "the url is not provided in the options" {
 	}
 }
 
-Describe "the url is the only option" {
+Describe "patch url" {
 	Context "only the url is provided" {
 		$options = @{ Url = "url1" }
 		$patcher.execute($options)
@@ -87,5 +91,20 @@ Describe "the url is the only option" {
 		It "uses the url" {
 			$options.Url | should equal "url1"
 		}
+	}
+}
+Describe "patch authorization header" {
+	$patcherHeader = "patcherHeader1"
+	$authorizationHeaderPatcher | Add-Member -Type ScriptMethod execute { param($passedOptions) $passedOptions.AuthorizationHeader = $patcherHeader } -Force
+	Context "the options contains an authroization header" {
+		$originalHeader = "originalHeader1"
+		$options = @{ AuthorizationHeader = $originalHeader } 
+		$patcher.execute($options)
+		$options.AuthorizationHeader | should equal $originalHeader
+	}
+	Context "the options does not contain an authorization header" {
+		$options = @{ } 
+		$patcher.execute($options)
+		$options.AuthorizationHeader | should equal $patcherHeader
 	}
 }

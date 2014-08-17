@@ -12,15 +12,15 @@ function new_uri_parser { param($clientType)
 		$result = $queryString.Split("&") | % { $this._splitParameter($_) } 
 		,@($result)
 	}
-	$obj | Add-Member -Type ScriptMethod execute { param($params)
-		$uri = $params.Options.Url
+	$obj | Add-Member -Type ScriptMethod execute { param($uri=(throw "uri is mandatory"))
+		$result = @{ }
 		$accountStartIndex = 7
 
 		if($uri.SubString(0, 5) -eq "https") { $accountStartIndex = 8 }
 
 		$blobDomain = ".$($this.ClientType).core.windows.net"
 		$startOfBlobDomain = $uri.indexof($blobDomain)
-		$params.Account = $uri.substring($accountStartIndex, $startOfBlobDomain - $accountStartIndex)
+		$result.Account = $uri.substring($accountStartIndex, $startOfBlobDomain - $accountStartIndex)
 		
 		$startOfResource = $startOfBlobDomain + $blobDomain.Length + 1
 		$indexOfQuestionMark = $uri.indexof("?")
@@ -33,11 +33,12 @@ function new_uri_parser { param($clientType)
 			$operationString = $uri.SubString($indexOfQuestionMark + 1, $uri.Length - ($indexOfQuestionMark + 1))
 			$operations = $this._splitParameters($operationString) 
 			if($null -ne $operations) {
-				$params.Operations = $operations
+				$result.Operations = $operations
 			}
 		}
 
-		$params.Resource = $uri.substring($startOfResource, $lengthOfResource)
+		$result.Resource = $uri.substring($startOfResource, $lengthOfResource)
+		$result
 	}
 	$obj
 }

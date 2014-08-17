@@ -65,23 +65,25 @@ Describe "create operations string" {
 	}
 }
 
-Describe "add the canonicalized resources to the params" {
+Describe "parse the canonicalized resources" {
 	$accountName = "account1"
 	$parser = new_blob_canonicalized_resources_parser $accountName
 	Context "when there are operations" {
 		It "concatenates the account, uri with a / and the operations string with new line" {
-			$params = @{ Resource = "resource1"; Operations = "operations1" } 
-			$parser | Add-Member -Type ScriptMethod _createOperationsString { param($operations) if($operations -ne $params.Operations) { throw "Expected $(params.Operations)" } return "operations string 1" } -Force
-			$result = $parser.execute($params)
-			$params.CanonicalizedResources | should equal "/account1/resource1`noperations string 1"
+			$resource = "resource1"
+			$operations = "operations1"
+			$parser | Add-Member -Type ScriptMethod _createOperationsString { param($passedOperations) if($passedOperations -ne $operations) { throw "Expected $(operations)" } return "operations string 1" } -Force
+			$result = $parser.execute($operations, $resource)
+			$result | should equal "/account1/resource1`noperations string 1"
 		}
 	}
 	Context "when there are not operations" {
 		It "concatenates the account and uri with a /" {
-			$params = @{ Resource = "resource1"; Operations = "operations1" } 
-			$parser | Add-Member -Type ScriptMethod _createOperationsString { param($operations) if($operations -ne $params.Operations) { throw "Expected $(params.Operations)" } return [string]::empty } -Force
-			$result = $parser.execute($params)
-			$params.CanonicalizedResources | should equal "/account1/resource1"
+			$resource = "resource1"
+			$operations = "operations1"
+			$parser | Add-Member -Type ScriptMethod _createOperationsString { param($passedOperations) if($passedOperations -ne $operations) { throw "Expected $($operations)" } return [string]::empty } -Force
+			$result = $parser.execute($operations, $resource)
+			$result | should equal "/account1/resource1"
 		}
 	}
 }

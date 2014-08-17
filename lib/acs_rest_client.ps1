@@ -1,64 +1,42 @@
-param($restLibDir)
+param($restLibDir = (Resolve-Path .\).Path)
+$ErrorActionPreference = "stop"
 
 . "$restLibDir\request_builder.ps1"
 . "$restLibDir\retry_handler.ps1"
 . "$restLibDir\request_handler.ps1"
 . "$restLibDir\response_handlers.ps1"
+. "$restLibDir\acs_options_patcher.ps1"
+. "$restLibDir\rest_client.ps1"
+. "$restLibDir\simple_options_patcher.ps1"
+. "$restLibDir\config.ps1"
+. "$restLibDir\acs_client_token_patcher.ps1"
 
-[Reflection.Assembly]::LoadWithPartialName("System.Security.Cryptography") | Out-Null
-[Reflection.Assembly]::LoadWithPartialName("System.Web") | Out-Null
-[Reflection.Assembly]::LoadWithPartialName("System.Web.Extensions") | Out-Null
+function new_acs_rest_client {
+	param(
+		[ValidateNotNullOrEmpty()]$namespace = $("namespace is mandatory"),
+		[ValidateNotNullOrEmpty()]$key = $("key is mandatory"),
+		$defaultScheme = $(__.azure.rest.get_config "scheme"),
+		$defaultRetryCount = $(__.azure.rest.get_config "retry_count"),
+		$defaultTimeout = $(__.azure.rest.get_config "timeout"),
+		$defaultContentType = $(__.azure.rest.get_config "acs_content_type")
+	)
 
-function new_acs_rest_client { param($namespace, $key)
-	$requestBuilder = new_request_builder
-	$retryHandler = new_retry_handler $write_response
-	$requestHandler = new_request_handler $requestBuilder $retryHandler
+	$requestHandler = new_request_handler (new_request_builder) (new_retry_handler $write_response)
 
-	$obj = New-Object PSObject -Property @{ 
-		RequestHandler = $requestHandler;
-		Namespace = $namespace;
-		Key = $key;
-	}
-	$obj | Add-Member -Type ScriptMethod Request { param($verb, $resource, $content)
-		$token = $this._getToken()
+	$baseOptionsPatcher = new_simple_options_patcher `
+		$defaultRetryCount `
+		$defaultScheme `
+		$defaultContentType `
+		$defaultTimeout
+	
+	$authorizationPatcher = new_acs_client_token_patcher $namespace $key
 
-		$url = "https://$($this.Namespace)-sb.accesscontrol.windows.net/v2/mgmt/$resource"
+	$optionsPatcher = new_acs_options_patcher `
+		$namespace `
+		$baseOptionsPatcher `
+		$authorizationPatcher
 
-		$params = @{
-			MsHeaders = @();
-			AuthorizationHeader = "Bearer $($token.access_token)";
-			Options = @{
-				Url = $url;
-				RetryCount = 3;
-				Verb = $verb;
-				ContentType = "application/atom+xml";
-				Content = $content;
-				ProcessResponse = $parse_xml;
-			}
-		}
-
-		$this.RequestHandler.Execute($params)
-	}
-	$obj | Add-Member -Type ScriptMethod _getToken {
-		$url = "https://$($this.Namespace)-sb.accesscontrol.windows.net/v2/OAuth2-13?"
-
-		$encodedKey = [Web.HttpUtility]::UrlEncode($this.Key) 
-		$encodedScope = [Web.HttpUtility]::UrlEncode("https://$($this.Namespace)-sb.accesscontrol.windows.net/v2/mgmt/service/") 
-		$content = "grant_type=client_credentials&client_id=SBManagementClient&client_secret=$encodedKey&scope=$encodedScope"
-
-		$requestParams = @{
-			MsHeaders = @();
-			Options = @{
-				Url = $url;
-				RetryCount = 3;
-				ContentType = "application/x-www-form-urlencoded";
-				Verb = "POST";
-				Content = $content;
-				ProcessResponse = $parse_json;
-			}
-		}
-
-		$this.requestHandler.Execute($requestParams)
-	}
+	$obj = new_rest_client $requestHandler $optionsPatcher
+	$authorizationPatcher.AcsRestClient = $obj
 	$obj
 }
