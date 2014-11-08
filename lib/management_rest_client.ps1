@@ -11,18 +11,35 @@ $ErrorActionPreference = "stop"
 . "$restLibDir\simple_options_patcher.ps1"
 . "$restLibDir\config.ps1"
 
-function new_management_rest_client_with_cert_auth { 
+function new_subscription_management_rest_client_with_cert_auth { 
 	param(
 		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
 		[ValidateNotNullOrEmpty()]$cert=$(throw "cert is mandatory")
 	)	
 	$authenticationHandler = new_client_certificate_patcher $cert
-	new_management_rest_client $subscriptionId $authenticationHandler	
+	new_subscription_management_rest_client $subscriptionId $authenticationHandler	
 }
 
 function new_management_rest_client {
 	param(
-		$subscriptionId=$(throw "subscriptionId is mandatory"),
+		[ValidateNotNullOrEmpty()]$authenticationHandler=$(throw "authenticationHandler is mandatory")
+	)	
+	$urlPatcher = new_management_url_patcher
+	_new_management_rest_client $urlPatcher $authenticationHandler
+}
+
+function new_subscription_management_rest_client {
+	param(
+		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
+		[ValidateNotNullOrEmpty()]$authenticationHandler=$(throw "authenticationHandler is mandatory")
+	)	
+	$urlPatcher = new_subscription_management_url_patcher $subscriptionId
+	_new_management_rest_client $urlPatcher $authenticationHandler
+}
+
+function _new_management_rest_client {
+	param(
+		$urlPatcher=$(throw "urlPatcher is mandatory"),
 		$authenticationHandler=$(throw "authenticationHandler is mandatory"),
 		$defaultVersion = $(__.azure.rest.get_config "management_version"),
 		$defaultScheme = $(__.azure.rest.get_config "scheme"),
@@ -40,7 +57,7 @@ function new_management_rest_client {
 		$defaultTimeout
 
 	$optionsPatcher = new_management_options_patcher `
-		$subscriptionId `
+		$urlPatcher `
 		$defaultVersion `
 		$authenticationHandler `
 		$baseOptionsPatcher

@@ -1,4 +1,4 @@
-param($adalLibDir)
+param($adalLibDir = (Resolve-Path "..\libs").Path)
 
 [System.Reflection.Assembly]::LoadFrom("$adalLibDir\Microsoft.IdentityModel.Clients.ActiveDirectory.dll") | out-null
 [System.Reflection.Assembly]::LoadFrom("$adalLibDir\Microsoft.IdentityModel.Clients.ActiveDirectory.WindowsForms.dll") | out-null
