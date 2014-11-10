@@ -1,12 +1,17 @@
-param($subscriptionId, $thumbprint, $storageAccountName, $dataCenter, $workingDir = (Resolve-Path .\).Path)
+param(
+	$subscriptionId,
+	$thumbprint,
+	$storageAccountName,
+	$dataCenter,
+	$libDir = (Resolve-Path ..\lib).Path)
 $ErrorActionPreference = "stop"
 
 $cert = Get-Item cert:\CurrentUser\My\$thumbprint
 
-. "$workingDir\management_rest_client.ps1"
-. "$workingDir\blob_storage_client.ps1"
+. "$libDir\management_rest_client.ps1" $libDir
+. "$libDir\blob_storage_client.ps1" $libDir
 
-$script:restClient = new_management_rest_client_with_cert_auth $subscriptionId $cert
+$script:restClient = new_subscription_management_rest_client_with_cert_auth $subscriptionId $cert
 
 function create_storage_account { param($name, $dataCenter)
 	$storageAccountDef = `

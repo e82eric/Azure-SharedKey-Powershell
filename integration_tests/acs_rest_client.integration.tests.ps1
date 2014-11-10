@@ -1,12 +1,19 @@
-param($subscriptionId, $thumbprint, $namespace, $dataCenter, $workingDir = (Resolve-Path .\).Path)
+param(
+	$subscriptionId,
+	$thumbprint,
+	$namespace,
+	$dataCenter,
+	$libDir = (Resolve-Path ..\lib).Path
+)
 $ErrorActionPreference = "stop"
 
 $cert = Get-Item cert:\CurrentUser\My\$thumbprint
 
-. "$workingDir\management_rest_client.ps1"
-. "$workingDir\acs_rest_client.ps1"
+[Reflection.Assembly]::LoadWithPartialName("System.Web") | Out-Null
+. "$libDir\management_rest_client.ps1" $libDir
+. "$libDir\acs_rest_client.ps1" $libDir
 
-$script:restClient = new_management_rest_client_with_cert_auth $subscriptionId $cert
+$script:restClient = new_subscription_management_rest_client_with_cert_auth $subscriptionId $cert
 
 function create_service_bus_namespace { param($name, $dataCenter)
 	$def = "<entry xmlns='http://www.w3.org/2005/Atom'>

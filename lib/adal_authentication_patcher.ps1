@@ -3,13 +3,14 @@ param($adalLibDir = (Resolve-Path "..\libs").Path)
 [System.Reflection.Assembly]::LoadFrom("$adalLibDir\Microsoft.IdentityModel.Clients.ActiveDirectory.dll") | out-null
 [System.Reflection.Assembly]::LoadFrom("$adalLibDir\Microsoft.IdentityModel.Clients.ActiveDirectory.WindowsForms.dll") | out-null
 
-function new_adal_authentication_patcher { param($adalAdTenantId)
+function new_adal_authentication_patcher { param($adalAdTenantId, $resourceAppIdUri, $aadTenant)
   $obj = New-Object PSObject -Property @{ 
     AdalAdTenantId = $adalAdTenantId;
     Token = $null;
     ClientId = "1950a258-227b-4e31-a9cf-717495945fc2";
     RedirectUri = "urn:ietf:wg:oauth:2.0:oob";
-    ResourceAppIdURI = "https://management.core.windows.net/";
+    ResourceAppIdURI = $resourceAppIdUri;
+		AadTenant = $aadTenant;
   }
   $obj | Add-Member -Type ScriptMethod _invokeInStaSession { param($tokenFunc, $paramName, $param)
     $pool = [RunspaceFactory]::CreateRunspacePool(1, 3)
@@ -35,15 +36,20 @@ function new_adal_authentication_patcher { param($adalAdTenantId)
     $param = @{
       ClientId = "1950a258-227b-4e31-a9cf-717495945fc2";
       RedirectUri = "urn:ietf:wg:oauth:2.0:oob";
-      ResourceAppIdURI = "https://management.core.windows.net/";
+      ResourceAppIdURI = $this.ResourceAppIdUri;
       AdalAdTenantId = $this.AdalAdTenantId;
+			AadTenant = $this.AadTenant;
     }
 
     $tokenFunc = { param($adalConfig)
       try {
-        $authority = "https://login.windows.net/$($adalConfig.AdalAdTenantId)"
+        $authority = "https://login.windows.net/$($adalConfig.AadTenant)"
         $authContext = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext($authority, $true)
-        $authContext.AcquireToken($adalConfig.ResourceAppIdURI, $adalConfig.ClientId, $adalConfig.RedirectUri, [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Always, "site_id=501358&display=popup")
+        $authContext.AcquireToken(
+					$adalConfig.ResourceAppIdURI,
+					$adalConfig.ClientId,
+					$adalConfig.RedirectUri,
+					[Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Always)
       } catch {
         $_
       }
@@ -57,12 +63,13 @@ function new_adal_authentication_patcher { param($adalAdTenantId)
       RedirectUri = "urn:ietf:wg:oauth:2.0:oob";
       ResourceAppIdURI = "https://management.core.windows.net/";
       AdalAdTenantId = $this.AdalAdTenantId;
+			AadTenant = $this.AadTenant;
       RefreshToken = $this.Token.RefreshToken
     }
 
     $tokenFunc = { param($adalConfig)
       try {
-        $authority = "https://login.windows.net/$($adalConfig.AdalAdTenantId)"
+        $authority = "https://login.windows.net/$($adalConfig.AadTenant)"
         $authContext = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext($authority, $true)
         $authContext.AcquireTokenByRefreshToken($adalConfig.RefreshToken, $adalConfig.ClientId, $adalConfig.ResourceAppIdURI)
       } catch {

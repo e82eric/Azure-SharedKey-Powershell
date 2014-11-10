@@ -1,7 +1,6 @@
 param(
 	$restLibDir = (Resolve-Path .\).Path,
-	$workingDir = (Resolve-Path .\).Path,
-	$adalLibDir
+	$adalLibDir = (Resolve-Path ..\libs).Path
 )
 
 $ErrorActionPreference = "stop"
@@ -10,8 +9,8 @@ $ErrorActionPreference = "stop"
 . "$restLibDir\retry_handler.ps1"
 . "$restLibDir\request_handler.ps1"
 . "$restLibDir\response_handlers.ps1"
-. "$workingDir\resource_manager_options_patcher.ps1"
-. "$workingDir\adal_authentication_patcher.ps1" $adalLibDir
+. "$restLibDir\resource_manager_options_patcher.ps1"
+. "$restLibDir\adal_authentication_patcher.ps1" $adalLibDir
 . "$restLibDir\rest_client.ps1"
 . "$restLibDir\simple_options_patcher.ps1"
 . "$restLibDir\config.ps1"
@@ -27,7 +26,7 @@ function new_resource_manager_rest_client {
 		$defaultTimeout = $(__.azure.rest.get_config "timeout")
 	)
 
-	$authenticationPatcher = new_adal_authentication_patcher $adTenantId
+	$authenticationPatcher = new_adal_authentication_patcher $adTenantId "https://management.core.windows.net/" $adTenantId
 	$requestHandler = new_request_handler (new_request_builder) (new_retry_handler $write_response)
 
 	$baseOptionsPatcher = new_simple_options_patcher `
@@ -37,9 +36,11 @@ function new_resource_manager_rest_client {
 		$defaultTimeout
 
 	$optionsPatcher = new_resource_manager_options_patcher `
-		$subscriptionId `
 		$authenticationPatcher `
-		$baseOptionsPatcher
+		$baseOptionsPatcher `
+		"management.azure.com" `
+		"subscriptions/$subscriptionId"
+
 
 	$obj = new_rest_client $requestHandler $optionsPatcher $authenticationPatcher
 	$obj

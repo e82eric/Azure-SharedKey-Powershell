@@ -10,7 +10,7 @@ $ErrorActionPreference = "stop"
 . "$restLibDir\simple_options_patcher.ps1"
 . "$restLibDir\config.ps1"
 . "$restLibDir\acs_wrap_token_patcher.ps1"
-. "$restLibDir\acs_rest_client.ps1"
+. "$restLibDir\acs_rest_client.ps1" $restLibDir
 
 function new_service_bus_rest_client {
 	param(

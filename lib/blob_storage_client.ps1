@@ -1,6 +1,5 @@
+param($libDir = (Resolve-Path .\).Path)
 $ErrorActionPreference = "stop"
-
-$libDir = (Resolve-Path .\).Path
 
 . "$libDir\uri_parser.ps1"
 . "$libDir\ms_headers_parser.ps1"
