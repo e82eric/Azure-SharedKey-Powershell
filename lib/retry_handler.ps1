@@ -9,26 +9,28 @@ function new_retry_handler { param($exceptionResponseHandler)
 			try {
 				& $retryAction
 				$running = $false	
-			} catch [Net.WebException] {
-				if($_.Exception.Status -eq [Net.WebExceptionStatus]::Timeout) {
-					if($null -ne $_.Exception.Response) {
-						& $this.ExceptionResponseHandler $_.Exception.Response
+			} catch {
+				$e = $_.Exception
+				while($e.Response -eq $null) {
+					if($null -eq $e.InnerException) { break }
+					$e = $e.InnerException
+				}
+				if($e.Status -eq [Net.WebExceptionStatus]::Timeout) {
+					if($null -ne $e.Response) {
+						& $this.ExceptionResponseHandler $e.Response
 					}
 					if(!($numberOfRetries -lt $retryCount)) {
-						throw $_
+						throw $e
 					}
 					$numberOfRetries++
 					Write-Host "Retrying request due to timeout. Attempt $numberOfRetries of $retryCount"
 				}
 				else	{ 
-					if($null -ne $_.Exception.Response) {
-						& $this.ExceptionResponseHandler $_.Exception.Response
+					if($null -ne $e.Response) {
+						& $this.ExceptionResponseHandler $e.Response
 					}
-					throw $_
+					throw $e
 				}
-			}
-			catch {
-				throw $_
 			}
 		}
 	}

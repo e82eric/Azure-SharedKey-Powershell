@@ -33,7 +33,7 @@ $write_host = { param($response)
 	Write-Host $result
 }
 $write_response = { param($response)
-	$reqstream = $_.Exception.Response.GetResponseStream()
+	$reqstream = $response.GetResponseStream()
 	$sr = new-object System.IO.StreamReader $reqstream
 	$result = $sr.ReadToEnd()
 	Write-Host "Response content => $result"

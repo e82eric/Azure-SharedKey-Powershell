@@ -49,7 +49,8 @@ function new_adal_authentication_patcher { param($adalAdTenantId, $resourceAppId
 					$adalConfig.ResourceAppIdURI,
 					$adalConfig.ClientId,
 					$adalConfig.RedirectUri,
-					[Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Always)
+					[Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Always,
+					"site_id=501358&display=popup")
       } catch {
         $_
       }
