@@ -1,6 +1,6 @@
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $sut = (Split-Path -Leaf $MyInvocation.MyCommand.Path).Replace(".tests.", ".")
-. "$here\$sut"
+. "$here\..\lib\$sut"
 
 Describe "create operations string" {
 	$parser = new_blob_canonicalized_resources_parser

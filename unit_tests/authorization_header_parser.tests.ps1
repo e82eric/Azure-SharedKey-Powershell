@@ -1,6 +1,6 @@
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $sut = (Split-Path -Leaf $MyInvocation.MyCommand.Path).Replace(".tests.", ".")
-. "$here\$sut"
+. "$here\..\lib\$sut"
 
 Describe "add the authorization header to the params" {
 	$storageName = "account1"

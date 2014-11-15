@@ -1,6 +1,6 @@
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $sut = (Split-Path -Leaf $MyInvocation.MyCommand.Path).Replace(".tests.", ".")
-. "$here\$sut"
+. "$here\..\lib\$sut"
 
 Describe "add the ms headers to the options" {
 	$stubedNow = "now1"
