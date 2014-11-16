@@ -26,7 +26,7 @@ function new_resource_manager_rest_client {
 		$defaultTimeout = $(__.azure.rest.get_config "timeout")
 	)
 
-	$authenticationPatcher = new_adal_authentication_patcher $adTenantId "https://management.core.windows.net/" $adTenantId
+	$authenticationPatcher = new_adal_authentication_patcher $adTenantId "https://management.core.windows.net" $adTenantId
 	$requestHandler = new_request_handler (new_request_builder) (new_retry_handler $write_response)
 
 	$baseOptionsPatcher = new_simple_options_patcher `
@@ -38,9 +38,7 @@ function new_resource_manager_rest_client {
 	$optionsPatcher = new_resource_manager_options_patcher `
 		$authenticationPatcher `
 		$baseOptionsPatcher `
-		"management.azure.com" `
-		"subscriptions/$subscriptionId"
-
+		"management.azure.com/subscriptions/$subscriptionId"
 
 	$obj = new_rest_client $requestHandler $optionsPatcher $authenticationPatcher
 	$obj

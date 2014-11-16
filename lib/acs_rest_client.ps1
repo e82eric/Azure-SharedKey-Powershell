@@ -5,7 +5,7 @@ $ErrorActionPreference = "stop"
 . "$restLibDir\retry_handler.ps1"
 . "$restLibDir\request_handler.ps1"
 . "$restLibDir\response_handlers.ps1"
-. "$restLibDir\acs_options_patcher.ps1"
+. "$restLibDir\resource_manager_options_patcher.ps1"
 . "$restLibDir\rest_client.ps1"
 . "$restLibDir\simple_options_patcher.ps1"
 . "$restLibDir\config.ps1"
@@ -31,10 +31,10 @@ function new_acs_rest_client {
 	
 	$authorizationPatcher = new_acs_client_token_patcher $namespace $key
 
-	$optionsPatcher = new_acs_options_patcher `
-		$namespace `
+	$optionsPatcher = new_resource_manager_options_patcher `
+		$authorizationPatcher `
 		$baseOptionsPatcher `
-		$authorizationPatcher
+		"$($namespace)-sb.accesscontrol.windows.net"
 
 	$obj = new_rest_client $requestHandler $optionsPatcher
 	$authorizationPatcher.AcsRestClient = $obj

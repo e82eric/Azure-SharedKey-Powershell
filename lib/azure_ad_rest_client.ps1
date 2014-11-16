@@ -37,8 +37,7 @@ function new_azure_ad_rest_client {
 	$optionsPatcher = new_resource_manager_options_patcher `
 		$authenticationPatcher `
 		$baseOptionsPatcher `
-		"graph.windows.net" `
-		$adTenantid
+		"graph.windows.net/$adTenantid"
 
 	$obj = new_rest_client $requestHandler $optionsPatcher $authenticationPatcher
 	$obj

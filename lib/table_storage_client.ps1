@@ -9,6 +9,8 @@ $ErrorActionPreference = "stop"
 . "$libDir\request_builder.ps1"
 . "$libDir\request_handler.ps1"
 . "$libDir\options_patcher.ps1"
+. "$libDir\simple_options_patcher.ps1"
+. "$libDir\resource_manager_options_patcher.ps1"
 . "$libDir\response_handlers.ps1"
 . "$libDir\authorization_header_parser.ps1"
 . "$libDir\rest_client.ps1"
@@ -22,7 +24,9 @@ function new_table_storage_client {
 		$storageKey=$(throw "storageKey is mandatory"),
 		$defaultVersion = $(__.azure.rest.get_config "storage_version"),
 		$defaultScheme = $(__.azure.rest.get_config "scheme"),
-		$defaultRetryCount = $(__.azure.rest.get_config "retry_count")
+		$defaultRetryCount = $(__.azure.rest.get_config "retry_count"),
+		$defaultContentType = "application/xml",
+		$defaultTimeout = $(__.azure.rest.get_config "timeout")
 	)
 	$clientType = "table"
 
@@ -35,14 +39,22 @@ function new_table_storage_client {
 		(new_authorization_header_parser $storageName)
 
 	$requestHandler = new_request_handler (new_request_builder $storageName) (new_retry_handler $write_response)
-	$optionsPatcher = new_options_patcher `
-		$storageName `
-		$defaultVersion `
+
+	$baseOptionsPatcher = new_simple_options_patcher `
 		$defaultRetryCount `
-		$clientType `
 		$defaultScheme `
-		(new_ms_headers_parser) `
-		$authorizationHeaderPatcher
+		$defaultContentType `
+		$defaultTimeout
+
+	$resourceManagerOptionsPatcher = new_resource_manager_options_patcher `
+		$authorizationHeaderPatcher `
+		$baseOptionsPatcher `
+		"$($storageName).$($clientType).core.windows.net"
+
+	$optionsPatcher = new_options_patcher `
+		$resourceManagerOptionsPatcher `
+		$defaultVersion `
+		(new_ms_headers_parser)
 
 	new_rest_client $requestHandler $optionsPatcher $authorizationHeaderPatcher
 }

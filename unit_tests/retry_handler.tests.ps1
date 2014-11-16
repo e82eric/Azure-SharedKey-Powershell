@@ -2,10 +2,64 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $sut = (Split-Path -Leaf $MyInvocation.MyCommand.Path).Replace(".tests.", ".")
 . "$here\..\lib\$sut"
 
-$handler = new_retry_handler { }
+Describe "get web exception" {
+	$handler = new_retry_handler { }
+	Context "when the first exception has a WexExceptionStatus" {
+		It "returns the first exception" {
+			$exception = @{ Status = [Net.WebExceptionStatus]::Timeout }
+			$handler._getWebException($exception) | should equal $exception
+		}
+	}
+	Context "when the second exception has a WebExceptionStatus" {
+		It "returns the second exception" {
+			$secondException = @{ Status = [Net.WebExceptionStatus]::Timeout }
+			$handler._getWebException(@{ InnerException = $secondException }) | should equal $secondException
+		}
+	}
+	Context "when the third exception has a WebExceptionStatus" {
+		It "returns the third exception" {
+			$thirdException = @{ Status = [Net.WebExceptionStatus]::Timeout }
+			$handler._getWebException(@{ InnerException = @{ InnerException = $thirdException } }) | should equal $thirdException
+		}
+	}
+}
+Describe "write response" {
+	Context "When the exception does not have a response" {
+		It "does not call the exception response handler when the exception does not have a response" {
+			$script:numberOfResponseHandlerCalls = 0;
+			$responseHandler = { param($response)
+				$script:numberOfResponseHandlerCalls++
+			}
+			$handler = new_retry_handler $responseHandler
+			$handler._writeResponse(@{ Respone = $null }) 
 
+			$script:numberOfResponseHandlerCalls | should be 0
+		}
+	}
+	Context "When the exception has a response" {
+		It "it calls the exception respone handler" {
+			$script:numberOfResponseHandlerCalls = 0;
+			$expected = New-Object Net.HttpWebResponse
+			$responseHandler = { param($response)
+				$response | should be $expected
+				$script:numberOfResponseHandlerCalls++
+			}
+			$handler = new_retry_handler $responseHandler
+			$handler._writeResponse(@{ Respone = $expected }) 
+
+			$script:numberOfResponseHandlerCalls | should be 0
+		}
+	}
+}
 Describe "retry handler" {
+	$handler = new_retry_handler { }
+	$exceptionToThrow = New-Object Exception
+	$webException = New-Object Net.WebException("Timeout", [Net.WebExceptionStatus]::Timeout) 
 	Context "When a timeout exception is thrown" {
+		$handler | Add-Member _getWebException -Type ScriptMethod { param($exceptionPassed)
+			if($exceptionPassed -ne $exceptionToThrow) { throw "wrong exception passed to getWebException" }
+			else { $webException }
+		} -Force
 		It "executes the action once when it does not throw an exception" {
 			$script:numberOfTries = 0
 			$handler.execute(3, { $script:numberOfTries++ })
@@ -16,7 +70,7 @@ Describe "retry handler" {
 			$handler.execute(3, { 
 				if($script:numberOfTries -eq 0) {
 					$script:numberOfTries++ 
-					throw New-Object Net.WebException("Timeout", [Net.WebExceptionStatus]::Timeout)
+					throw $exceptionToThrow 
 				}
 				$script:numberOfTries++ 
 			})
@@ -27,7 +81,7 @@ Describe "retry handler" {
 			$handler.execute(3, { 
 				if($script:numberOfTries -lt 2) {
 					$script:numberOfTries++ 
-					throw New-Object Net.WebException("Timeout", [Net.WebExceptionStatus]::Timeout)
+					throw $exceptionToThrow
 				}
 				$script:numberOfTries++ 
 			})
@@ -38,7 +92,7 @@ Describe "retry handler" {
 			$handler.execute(3, { 
 				if($script:numberOfTries -lt 3) {
 					$script:numberOfTries++ 
-					throw New-Object Net.WebException("Timeout", [Net.WebExceptionStatus]::Timeout)
+					throw $exceptionToThrow
 				}
 				$script:numberOfTries++ 
 			})
@@ -50,105 +104,67 @@ Describe "retry handler" {
 				$handler.execute(3, { 
 					if($script:numberOfTries -lt 4) {
 						$script:numberOfTries++ 
-						throw New-Object Net.WebException("Timeout", [Net.WebExceptionStatus]::Timeout)
+						throw $exceptionToThrow
 					}
 					$script:numberOfTries++ 
 				}) 
 			} | Should throw
 		}
-		It "passes the exceptions response to the exception response handler when the exception has a response" {
-			$script:numberOfResponseHandlerCalls = 0;
+		It "writes the exceptions each time an exception is throws" {
+			$script:numberOfWriteCalls = 0;
 			$expected = New-Object Net.HttpWebResponse
-			$responseHandler = { param($response)
-				$response | should be $expected
-				$script:numberOfResponseHandlerCalls++
-			}
-			$handler = new_retry_handler $responseHandler
+			$handler | Add-Member -Type ScriptMethod _writeResponse { param($exceptionPassed)
+				$exceptionPassed | should be $webException
+				$script:numberOfWriteCalls++
+			} -Force
 			$script:numberOfTries = 0;
 			{
 				$handler.execute(3, { 
 					if($script:numberOfTries -lt 4) {
 						$script:numberOfTries++ 
-						throw New-Object Net.WebException("Timeout", (New-Object Exception), [Net.WebExceptionStatus]::Timeout, $expected)
+						throw $exceptionToThrow
 					}
-					$script:numberOfTries++ 
 				}) 
 			} | should throw
 
-			$script:numberOfResponseHandlerCalls | should be 4
-		}
-		It "does not call the exception response handler when the exception does not have a response" {
-			$script:numberOfResponseHandlerCalls = 0;
-			$expected = New-Object Net.HttpWebResponse
-			$responseHandler = { param($response)
-				$response | should be $expected
-				$script:numberOfResponseHandlerCalls++
-			}
-			$handler = new_retry_handler $responseHandler
-			$script:numberOfTries = 0;
-			{
-				$handler.execute(3, { 
-					if($script:numberOfTries -lt 4) {
-						$script:numberOfTries++ 
-						throw New-Object Net.WebException("Timeout", (New-Object Exception), [Net.WebExceptionStatus]::Timeout, $expected)
-					}
-					$script:numberOfTries++ 
-				}) 
-			} | should throw
-
-			$script:numberOfResponseHandlerCalls | should be 4
+			$script:numberOfWriteCalls | should be 4
 		}
 	}
 	Context "when a non timeout exception is thrown" {
+		$handler = new_retry_handler { }
+		$exceptionToThrow = New-Object Exception
+		$webException = New-Object Net.WebException("ConnectFailure", [Net.WebExceptionStatus]::ConnectFailure) 
+		$handler | Add-Member _getWebException -Type ScriptMethod { param($exceptionPassed)
+			if($exceptionPassed -ne $exceptionToThrow) { throw "wrong exception passed to getWebException" }
+			else { $webException }
+		} -Force
 		It "throws" {
 			$script:numberOfTries = 0
 			{
 				$handler.execute(3, { 
 					if($script:numberOfTries -eq 0) {
 						$script:numberOfTries++ 
-						throw New-Object Net.WebException("ConnectFailure", [Net.WebExceptionStatus]::ConnectFailure)
+						throw $exceptionToThrow
 					}
 					$script:numberOfTries++ 
 				})
 			} | Should throw
+
+			$script:numberOfTries | should be 1
 		}
-		It "passes the exceptions response to the response handler when the exception has a response" {
-			$script:numberOfResponseHandlerCalls = 0;
-			$expected = New-Object Net.HttpWebResponse
-			$responseHandler = { param($response)
-				$response | should be $expected
-				$script:numberOfResponseHandlerCalls++
-			}
-			$handler = new_retry_handler $responseHandler
-			$script:numberOfTries = 0;
+		It "it writes the exception" {
+			$script:numberOfWriteCalls = 0;
+			$handler | Add-Member -Type ScriptMethod _writeResponse { param($exceptionPassed)
+				$exceptionPassed | should be $webException
+				$script:numberOfWriteCalls++
+			} -Force
 			{
 				$handler.execute(3, {
-					if($script:numberOfTries -eq 0) {
-						$script:numberOfTries++ 
-						throw New-Object Net.WebException("ConnectFailure", (New-Object Exception), [Net.WebExceptionStatus]::ConnectFailure, $expected)
-					}
+					throw $exceptionToThrow
 				})
 			} | should throw
 
-			$script:numberOfResponseHandlerCalls | should be 1
-		}
-		It "does not call the response handler when the exception has no response" {
-			$script:numberOfResponseHandlerCalls = 0;
-			$responseHandler = { param($response)
-				$script:numberOfResponseHandlerCalls++
-			}
-			$handler = new_retry_handler $responseHandler
-			$script:numberOfTries = 0;
-			{
-				$handler.execute(3, {
-					if($script:numberOfTries -eq 0) {
-						$script:numberOfTries++ 
-						throw New-Object Net.WebException("ConnectFailure", [Net.WebExceptionStatus]::ConnectFailure)
-					}
-				})
-			} | should throw
-
-			$script:numberOfResponseHandlerCalls | should be 0
+			$script:numberOfWriteCalls | should be 1
 		}
 	}
 }

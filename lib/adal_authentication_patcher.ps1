@@ -1,7 +1,7 @@
 param($adalLibDir = (Resolve-Path "..\libs").Path)
 
-[System.Reflection.Assembly]::LoadFrom("$adalLibDir\Microsoft.IdentityModel.Clients.ActiveDirectory.dll") | out-null
-[System.Reflection.Assembly]::LoadFrom("$adalLibDir\Microsoft.IdentityModel.Clients.ActiveDirectory.WindowsForms.dll") | out-null
+[Reflection.Assembly]::LoadFrom("$adalLibDir\Microsoft.IdentityModel.Clients.ActiveDirectory.dll") | out-null
+[Reflection.Assembly]::LoadFrom("$adalLibDir\Microsoft.IdentityModel.Clients.ActiveDirectory.WindowsForms.dll") | out-null
 
 function new_adal_authentication_patcher { param($adalAdTenantId, $resourceAppIdUri, $aadTenant)
   $obj = New-Object PSObject -Property @{ 

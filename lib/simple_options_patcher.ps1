@@ -8,7 +8,7 @@ function new_simple_options_patcher {
 		[ValidateNotNullOrEmpty()]$defaultTimeout
 	)
 	$obj = New-Object PSObject -Property @{ 
-		DefaultRetryCount = $retryCount;
+		DefaultRetryCount = $defaultRetryCount;
 		DefaultScheme = $defaultScheme;
 		DefaultContentType = $defaultContentType;
 		DefaultTimeout = $defaultTimeout;

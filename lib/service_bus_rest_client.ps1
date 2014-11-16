@@ -5,7 +5,7 @@ $ErrorActionPreference = "stop"
 . "$restLibDir\retry_handler.ps1"
 . "$restLibDir\request_handler.ps1"
 . "$restLibDir\response_handlers.ps1"
-. "$restLibDir\service_bus_options_patcher.ps1"
+. "$restLibDir\resource_manager_options_patcher.ps1"
 . "$restLibDir\rest_client.ps1"
 . "$restLibDir\simple_options_patcher.ps1"
 . "$restLibDir\config.ps1"
@@ -35,10 +35,10 @@ function new_service_bus_rest_client {
 	
 	$authorizationPatcher = new_acs_wrap_token_patcher $namespace $identityName $key $acsRestClient
 
-	$optionsPatcher = new_service_bus_options_patcher `
-		$namespace `
+	$optionsPatcher = new_resource_manager_options_patcher `
+		$authorizationPatcher `
 		$baseOptionsPatcher `
-		$authorizationPatcher
+		"$($namespace).servicebus.windows.net"
 
 	$obj = new_rest_client $requestHandler $optionsPatcher
 	$obj

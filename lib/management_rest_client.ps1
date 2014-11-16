@@ -5,6 +5,7 @@ $ErrorActionPreference = "stop"
 . "$restLibDir\retry_handler.ps1"
 . "$restLibDir\request_handler.ps1"
 . "$restLibDir\response_handlers.ps1"
+. "$restLibDir\resource_manager_options_patcher.ps1"
 . "$restLibDir\management_options_patcher.ps1"
 . "$restLibDir\client_certificate_patcher.ps1"
 . "$restLibDir\rest_client.ps1"
@@ -20,12 +21,15 @@ function new_subscription_management_rest_client_with_cert_auth {
 	new_subscription_management_rest_client $subscriptionId $authenticationHandler	
 }
 
+function new_management_rest_client_with_adal {
+	new_management_rest_client (new_adal_authentication_patcher "common" "https://management.core.windows.net" "common")
+}
+
 function new_management_rest_client {
 	param(
 		[ValidateNotNullOrEmpty()]$authenticationHandler=$(throw "authenticationHandler is mandatory")
 	)	
-	$urlPatcher = new_management_url_patcher
-	_new_management_rest_client $urlPatcher $authenticationHandler
+	_new_management_rest_client "management.core.windows.net" $authenticationHandler
 }
 
 function new_subscription_management_rest_client {
@@ -33,13 +37,12 @@ function new_subscription_management_rest_client {
 		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
 		[ValidateNotNullOrEmpty()]$authenticationHandler=$(throw "authenticationHandler is mandatory")
 	)	
-	$urlPatcher = new_subscription_management_url_patcher $subscriptionId
-	_new_management_rest_client $urlPatcher $authenticationHandler
+	_new_management_rest_client "management.core.windows.net/$subscriptionId" $authenticationHandler
 }
 
 function _new_management_rest_client {
 	param(
-		$urlPatcher=$(throw "urlPatcher is mandatory"),
+		$beforeResource=$(throw "beforeResource is mandatory"),
 		$authenticationHandler=$(throw "authenticationHandler is mandatory"),
 		$defaultVersion = $(__.azure.rest.get_config "management_version"),
 		$defaultScheme = $(__.azure.rest.get_config "scheme"),
@@ -55,12 +58,15 @@ function _new_management_rest_client {
 		$defaultScheme `
 		$defaultContentType `
 		$defaultTimeout
+	
+	$resourceManagerOptionsPatcher = new_resource_manager_options_patcher `
+		$authenticationHandler `
+		$baseOptionsPatcher `
+		$beforeResource
 
 	$optionsPatcher = new_management_options_patcher `
-		$urlPatcher `
 		$defaultVersion `
-		$authenticationHandler `
-		$baseOptionsPatcher
+		$resourceManagerOptionsPatcher
 
 	$obj = new_rest_client $requestHandler $optionsPatcher $authenticationHandler
 	$obj | Add-Member -Type ScriptMethod ExecuteOperation { param ($verb, $resource, $content)
