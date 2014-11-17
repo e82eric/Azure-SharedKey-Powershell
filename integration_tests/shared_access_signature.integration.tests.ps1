@@ -75,7 +75,7 @@ function create_container { param($name, $blobClient)
 	})
 }
 
-#create_storage_account $storageAccountName $dataCenter
+create_storage_account $storageAccountName $dataCenter
 $storageKey = get_storage_key $storageAccountName
 $sasProvider = new_shared_access_signature_provider $storageAccountName $storageKey
 $blobClient = new_blob_storage_client $storageAccountName $storageKey
@@ -83,6 +83,6 @@ $blobClient = new_blob_storage_client $storageAccountName $storageKey
 $containerName = "tests"
 $blobName = "test.txt"
 
-#create_container $containerName $blobClient
+create_container $containerName $blobClient
 upload_blob $sasProvider $containerName $blobName
 download_blob $sasProvider $containerName $blobName
