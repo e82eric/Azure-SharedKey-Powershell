@@ -86,3 +86,5 @@ $blobName = "test.txt"
 create_container $containerName $blobClient
 upload_blob $sasProvider $containerName $blobName
 download_blob $sasProvider $containerName $blobName
+
+delete_storage_account $storageAccountName
