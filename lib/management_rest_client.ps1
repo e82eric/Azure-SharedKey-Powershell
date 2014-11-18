@@ -12,6 +12,14 @@ $ErrorActionPreference = "stop"
 . "$restLibDir\simple_options_patcher.ps1"
 . "$restLibDir\config.ps1"
 
+function new_subscription_management_rest_client_with_adal { 
+	param(
+		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
+		[ValidateNotNullOrEmpty()]$aadTenantId=$(throw "aadTenantId is mandatory")
+	)	
+	new_subscription_management_rest_client $subscriptionId (new_adal_authentication_patcher $aadTenantId "https://management.core.windows.net/" $aadTenantId)
+}
+
 function new_subscription_management_rest_client_with_cert_auth { 
 	param(
 		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
