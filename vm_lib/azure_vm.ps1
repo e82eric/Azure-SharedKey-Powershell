@@ -4,8 +4,7 @@ param(
 	$adalLibDir = (Resolve-Path "$workingDirectory\..\libs").Path
 )
 
-. "$restLibDir\management_rest_client.ps1" $restLibDir
-. "$restLibDir\adal_authentication_patcher.ps1" $adalLibDir
+. "$restLibDir\management_rest_client.ps1" $restLibDir $adalLibDir
 . "$restLibDir\shared_access_signature_provider.ps1" $restLibDir
 . "$restLibDir\blob_storage_client.ps1" $restLibDir
 
@@ -30,7 +29,6 @@ function new_azure_vm (
 	$subscriptionId,
 	$subscriptionAdTenantId,
 	$vpnSubnet) {
-	$serviceName = $name;
 	$deploymentName = "$($serviceName)deployment"
 
 	$restClient = new_subscription_management_rest_client_with_adal $subscriptionId $subscriptionAdTenantId

@@ -1,4 +1,4 @@
-param($restLibDir = (Resolve-Path .\).Path)
+param($restLibDir = (Resolve-Path .\).Path, $adalLibDir = (Resolve-Path ..\libs).Path)
 $ErrorActionPreference = "stop"
 
 . "$restLibDir\request_builder.ps1"
@@ -11,13 +11,20 @@ $ErrorActionPreference = "stop"
 . "$restLibDir\rest_client.ps1"
 . "$restLibDir\simple_options_patcher.ps1"
 . "$restLibDir\config.ps1"
+. "$restLibDir\aad_token_provider.ps1" $adalLibDir
+. "$restLibDir\aad_file_cache_token_provider.ps1"
 
 function new_subscription_management_rest_client_with_adal { 
 	param(
 		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
-		[ValidateNotNullOrEmpty()]$aadTenantId=$(throw "aadTenantId is mandatory")
+		[ValidateNotNullOrEmpty()]$aadTenantId=$(throw "aadTenantId is mandatory"),
+		$fileTokenCachePath = "$env:userprofile\aad_tokens.dat"
 	)	
-	new_subscription_management_rest_client $subscriptionId (new_adal_authentication_patcher $aadTenantId "https://management.core.windows.net/" $aadTenantId)
+	$cacheIdentifier = "$subscriptionId`_management_rest_client"
+	$aadResource = "https://management.core.windows.net/"
+	$aadTokenProvider = new_aad_token_provider $aadResource $aadTenantId
+	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath
+	new_subscription_management_rest_client $subscriptionId $authenticationPatcher
 }
 
 function new_subscription_management_rest_client_with_cert_auth { 

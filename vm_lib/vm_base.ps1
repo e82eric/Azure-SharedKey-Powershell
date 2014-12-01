@@ -108,11 +108,11 @@ function new_vm_base ($name, $installersDirectory, $isoDrive) {
 		})
 	}
 	$obj | Add-Member -Type ScriptMethod Create -Value {
-		#$this._createVm()
-		#$this._waitForBoot()
-		#$this._setWinRmUri()
-		#$this._enableCredSSP()
-		#$this._configureServer()
+		$this._createVm()
+		$this._waitForBoot()
+		$this._setWinRmUri()
+		$this._enableCredSSP()
+		$this._configureServer()
 		$this._downloadInstallers()
 		$this._installChocolatey()
 		$this._installIsoMounter()
