@@ -45,7 +45,7 @@ function get_acs_key { param($name)
 		Resource = "services/servicebus/namespaces/$name/connectiondetails";
 		OnResponse = $parse_xml 
 	})
-	$connectionString = $result.ArrayOfConnectionDetail.ConnectionDetail.ConnectionString
+	$connectionString = ($result.ArrayOfConnectionDetail.ConnectionDetail | ? { $_.KeyName -eq "ACSOwnerKey" }).ConnectionString
 	$keyPart = $connectionString.split(';')[2]
 	$start = $keyPart.indexOf("=") + 1
 	$key = $keyPart.Substring($start, $keyPart.Length - $start)

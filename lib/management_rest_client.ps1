@@ -36,8 +36,12 @@ function new_subscription_management_rest_client_with_cert_auth {
 	new_subscription_management_rest_client $subscriptionId $authenticationHandler	
 }
 
-function new_management_rest_client_with_adal {
-	new_management_rest_client (new_adal_authentication_patcher "common" "https://management.core.windows.net" "common")
+function new_management_rest_client_with_adal { param($fileTokenCachePath = "$env:userprofile\aad_tokens.dat")
+	$cacheIdentifier = "$subscriptionId`subscriptions_management_rest_client"
+	$aadResource = "https://management.core.windows.net/"
+	$aadTokenProvider = new_aad_token_provider $aadResource "common"
+	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath
+	new_management_rest_client $authenticationPatcher
 }
 
 function new_management_rest_client {
@@ -107,7 +111,7 @@ function _new_management_rest_client {
 		}
 		if($status -ne "Succeeded") {
 			$error = $operationResult.OperationResult.Error
-			throw "Status: $status Code: $($error.Code) Message: $($error.Message)"
+			throw $operationResult.OuterXml
 		}
 		$operationResult
 	}
