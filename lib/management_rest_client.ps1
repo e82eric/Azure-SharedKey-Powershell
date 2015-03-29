@@ -18,10 +18,17 @@ function new_subscription_management_rest_client_with_adal {
 	param(
 		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
 		[ValidateNotNullOrEmpty()]$aadTenantId=$(throw "aadTenantId is mandatory"),
+		$loginHint,
 		$fileTokenCachePath = "$env:userprofile\aad_tokens.dat"
 	)	
 	$cacheIdentifier = "$subscriptionId`_management_rest_client"
 	$aadResource = "https://management.core.windows.net/"
+	$aadTokenProvider = $null
+	if($null -eq $loginHint) {
+		$aadTokenProvider = new_aad_token_provider $aadResource $aadTenantId
+	} else {
+		$aadTokenProvider = new_aad_token_provider_with_login $aadResource $aadTenantId -LoginHint $loginHint
+	}
 	$aadTokenProvider = new_aad_token_provider $aadResource $aadTenantId
 	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath
 	new_subscription_management_rest_client $subscriptionId $authenticationPatcher
@@ -36,10 +43,16 @@ function new_subscription_management_rest_client_with_cert_auth {
 	new_subscription_management_rest_client $subscriptionId $authenticationHandler	
 }
 
-function new_management_rest_client_with_adal { param($fileTokenCachePath = "$env:userprofile\aad_tokens.dat")
+function new_management_rest_client_with_adal { param($loginHint, $fileTokenCachePath = "$env:userprofile\aad_tokens.dat")
 	$cacheIdentifier = "$subscriptionId`subscriptions_management_rest_client"
 	$aadResource = "https://management.core.windows.net/"
-	$aadTokenProvider = new_aad_token_provider $aadResource "common"
+	$aadTenantId = "common"
+
+	if($null -eq $loginHint) {
+		$aadTokenProvider = new_aad_token_provider $aadResource $aadTenantId
+	} else {
+		$aadTokenProvider = new_aad_token_provider_with_login $aadResource $aadTenantId -LoginHint $loginHint
+	}
 	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath
 	new_management_rest_client $authenticationPatcher
 }

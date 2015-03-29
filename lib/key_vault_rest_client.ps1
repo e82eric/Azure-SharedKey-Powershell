@@ -16,8 +16,9 @@ $ErrorActionPreference = "stop"
 . "$restLibDir\simple_options_patcher.ps1"
 . "$restLibDir\config.ps1"
 
-function new_azure_ad_rest_client {
+function new_key_vault_rest_client {
 	param(
+		[ValidateNotNullOrEmpty()]$name=$(throw "name is mandatory"),
 		[ValidateNotNullOrEmpty()]$aadTenantId = $(throw "aadTenantId is mandatory"),
 		$loginHint,
 		$cacheIdentifier,
@@ -30,17 +31,16 @@ function new_azure_ad_rest_client {
 	)
 
 	if($null -eq $cacheIdentifier) {
-		$cacheIdentifier = "$aadTenantId`_azure_ad_management"
+		$cacheIdentifier = "$name`_key_vault"
 	}
 
-	$aadResource = "https://graph.windows.net"
-
+	$aadResource = "https://vault.azure.net"
 	if($null -eq $loginHint) {
 		$aadTokenProvider = new_aad_token_provider $aadResource $aadTenantId
 	} else {
 		$aadTokenProvider = new_aad_token_provider_with_login $aadResource $aadTenantId -LoginHint $loginHint
 	}
-	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $adTenantId $aadResource $aadTokenProvider $fileTokenCachePath
+	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath
 	$requestHandler = new_request_handler (new_request_builder) (new_retry_handler $write_response)
 
 	$baseOptionsPatcher = new_simple_options_patcher `
@@ -52,7 +52,7 @@ function new_azure_ad_rest_client {
 	$optionsPatcher = new_resource_manager_options_patcher `
 		$authenticationPatcher `
 		$baseOptionsPatcher `
-		"graph.windows.net/$aadTenantid"
+		"$($name).vault.azure.net"
 
 	$obj = new_rest_client $requestHandler $optionsPatcher $authenticationPatcher
 	$obj

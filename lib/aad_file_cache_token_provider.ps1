@@ -2,15 +2,16 @@ $ErrorActionPreference = "stop"
 [Reflection.Assembly]::LoadWithPartialName("System.Web.Extensions") | Out-Null
 [Reflection.Assembly]::LoadWithPartialName("System.Security") | Out-Null
 
-function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantId, $resourceAppIdUri, $tokenProvider, $filePath)
+function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantId, $resourceAppIdUri, $tokenProvider, $filePath, $loginHint)
 	$obj = New-Object PSObject -Property @{
 		FilePath = $filePath;
 		Serializer = (New-Object Web.Script.Serialization.JavaScriptSerializer);
-		Encoder = (New-Object System.Text.Utf8Encoding);
+		Encoder = (New-Object Text.Utf8Encoding);
 		Resource = $resourceAppIdUri;
 		AadTenantId = $aadTenantId;
 		TokenProvider = $tokenProvider;
 		CacheIdentifier = $cacheIdentifier;
+		LoginHing = $loginHint;
 	}
   $obj | Add-Member -Type ScriptMethod execute { param($options)
     $token = $this._getToken()

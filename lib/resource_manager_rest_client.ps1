@@ -20,6 +20,7 @@ function new_resource_manager_rest_client {
 	param(
 		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
 		[ValidateNotNullOrEmpty()]$adTenantId = $(throw "adTenantId is mandatory"),
+		$loginHint,
 		$cacheIdentifier,
 		$defaultVersion = $(__.azure.rest.get_config "management_version"),
 		$defaultScheme = $(__.azure.rest.get_config "scheme"),
@@ -34,7 +35,11 @@ function new_resource_manager_rest_client {
 	}
 
 	$aadResource = "https://management.core.windows.net/"
-	$aadTokenProvider = new_aad_token_provider $aadResource $adTenantId
+	if($null -eq $loginHint) {
+		$aadTokenProvider = new_aad_token_provider $aadResource $adTenantId
+	} else {
+		$aadTokenProvider = new_aad_token_provider_with_login $aadResource $adTenantId -LoginHint $loginHint
+	}
 	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $adTenantId $aadResource $aadTokenProvider $fileTokenCachePath
 	$requestHandler = new_request_handler (new_request_builder) (new_retry_handler $write_response)
 
