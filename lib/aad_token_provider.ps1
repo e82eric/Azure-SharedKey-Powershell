@@ -1,7 +1,7 @@
 param($adalLibDir = (Resolve-Path "..\libs").Path)
 
 [Reflection.Assembly]::LoadFrom("$adalLibDir\Microsoft.IdentityModel.Clients.ActiveDirectory.dll") | out-null
-[Reflection.Assembly]::LoadFrom("$adalLibDir\Microsoft.IdentityModel.Clients.ActiveDirectory.WindowsForms.dll") | out-null
+#[Reflection.Assembly]::LoadFrom("$adalLibDir\Microsoft.IdentityModel.Clients.ActiveDirectory.WindowsForms.dll") | out-null
 
 function new_aad_token_provider { param($resourceAppIdUri, $aadTenant, $subscriptionId)
 	$obj = new_aad_token_provider_base $resourceAppIdUri $aadTenant $subscriptionId
@@ -53,7 +53,8 @@ function new_aad_token_provider_with_login { param($resourceAppIdUri, $aadTenant
 					$adalConfig.ResourceAppIdUri,
 					$adalConfig.ClientId,
 					$adalConfig.RedirectUri,
-					$adalConfig.LoginHint,
+					[Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto,
+					(New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.UserIdentifier($adalConfig.LoginHint, [Microsoft.IdentityModel.Clients.ActiveDirectory.UserIdentifierType]::OptionalDisplayableId)),
 					"site_id=501358&display=popup")
       } catch {
         $_
