@@ -29,7 +29,6 @@ function new_subscription_management_rest_client_with_adal {
 	} else {
 		$aadTokenProvider = new_aad_token_provider_with_login $aadResource $aadTenantId -LoginHint $loginHint
 	}
-	$aadTokenProvider = new_aad_token_provider $aadResource $aadTenantId
 	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath
 	new_subscription_management_rest_client $subscriptionId $authenticationPatcher
 }
@@ -113,9 +112,9 @@ function _new_management_rest_client {
 		while ($true) {
 			$operationResult = $this.Request(@{ Verb = "GET"; Resource = "operations/$($serviceResult.OperationId)"; OnResponse = $parse_xml; RetryCount = 3; })
 			$status = $operationResult.Operation.Status
-			Write-Host $status
+			Write-Host "INFO: Checking management api operation status. OperationId: $($serviceResult.OperationId), Status: $($status)"
 			if($operationResult.Body -ne $null) {
-				Write-Host $operationResult.Body
+				Write-Host "INFO: Checking management api operation body. OperationId: $($serviceResult.OperationId), Body: $($operationResult.Body)"
 			}
 			if($status -ne "InProgress") {
 				break
@@ -124,7 +123,7 @@ function _new_management_rest_client {
 		}
 		if($status -ne "Succeeded") {
 			$error = $operationResult.OperationResult.Error
-			throw $operationResult.OuterXml
+			throw "Error: Management api operation failed. $($operationResult.OuterXml)"
 		}
 		$operationResult
 	}
@@ -132,6 +131,7 @@ function _new_management_rest_client {
 }
 								
 $parse_operation_xml = { param ($response)
+	Write-Verbose "Process response as operation xml"
 	$operationId = $response.Headers.Get("x-ms-request-id")
 	$stream = $response.GetResponseStream()
 	$reader = New-Object IO.StreamReader($stream)
@@ -143,6 +143,7 @@ $parse_operation_xml = { param ($response)
 }
 
 $parse_operation_id = { param ($response)
+	Write-Verbose "Process response as operation id"
 	$operationId = $response.Headers.Get("x-ms-request-id")
 	$stream = $response.GetResponseStream()
 	$reader = New-Object IO.StreamReader($stream)

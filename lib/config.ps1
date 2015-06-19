@@ -7,7 +7,7 @@ function __.azure.rest.get_config { param($key)
 		"scheme" { "https" }
 		"retry_count" { 3 }
 		"management_content_type" { "application/xml" }
-		"timeout" { 300000 }
+		"timeout" { 30000 }
 		"acs_content_type" { "application/atom+xml" }
 		default { throw "unknown config key: $key" }
 	}

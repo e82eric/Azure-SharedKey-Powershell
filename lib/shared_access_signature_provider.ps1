@@ -29,9 +29,9 @@ function new_shared_access_signature_provider { param(
 	$obj | Add-Member -Type ScriptMethod GetQueryString { param($resource, $signedResource, $signedPermissions, $expiryTime)
 		$expiryTimeString = $this._get_date_string($expiryTime)
 		$stringToSign = $this._get_string_to_sign($signedPermissions, $resource, $expiryTimeString)
-		Write-Host $stringToSign
+		Write-Verbose "Shared access signature string to sign: $($stringToSign)"
 		$hash = $this.SignatureHasher.execute($stringToSign)
-		Write-Host $hash
+		Write-Verbose "Shared access signature hash: $($hash)"
 		$encodedHash = [Web.HttpUtility]::UrlEncode($hash) 
 		"$resource`?sv=$($this.Version)&sr=$signedResource&se=$($expiryTimeString)&sp=$signedPermissions&sig=$encodedHash"
 	}

@@ -1,17 +1,22 @@
 param(
 	$subscriptionId,
-	$thumbprint,
 	$namespace,
 	$dataCenter,
+	$loginHint,
 	$libDir = (Resolve-Path ..\lib).Path)
 $ErrorActionPreference = "stop"
-
-$cert = Get-Item cert:\CurrentUser\My\$thumbprint
 
 . "$libDir\management_rest_client.ps1" $libDir
 . "$libDir\service_bus_rest_client.ps1" $libDir
 
-$script:restClient = new_subscription_management_rest_client_with_cert_auth $subscriptionId $cert
+$managementRestClient = new_management_rest_client_with_adal $loginHint
+$subscriptions = $managementRestClient.Request(@{ Verb = "GET"; Url = "https://management.core.windows.net/Subscriptions"; OnResponse = $parse_xml;})
+$subscriptionAadTenantId = ($subscriptions.Subscriptions.Subscription | ? { $_.SubscriptionId -eq $subscriptionId }).AADTenantId
+if($null -eq $subscriptionAadTenantId) {
+	throw "Error: Unable to find aad tenant id for subscription: $($subscriptionId)"
+}
+
+$script:restClient = new_subscription_management_rest_client_with_adal $subscriptionId $subscriptionAadTenantId $loginHint
 
 function create_service_bus_namespace { param($name, $dataCenter)
 	$def = "<entry xmlns='http://www.w3.org/2005/Atom'>
@@ -31,7 +36,7 @@ function create_service_bus_namespace { param($name, $dataCenter)
 			OnResponse = $parse_xml
 		})
 		$status = $result.NamespaceDescription.Status
-		Write-Host "Status: $status"
+		Write-Host "INFO: Checking create namespace operation status. Status: $($status)"
 		Start-Sleep -s 3
 		if($status -eq "Active") {
 			$confirmCreate = $true
@@ -62,7 +67,7 @@ function delete_service_bus_namespace { param($name)
 				Resource = "services/servicebus/namespaces/$name";
 				OnResponse = $parse_xml
 			})
-			Write-Host "Status: $($result.NamespaceDescription.Status)"
+			Write-Host "INFO: Checking delete service bus namespace status. Status: $($result.NamespaceDescription.Status)"
 			Start-Sleep -s 3
 		} catch {
 			$e = $_.Exception

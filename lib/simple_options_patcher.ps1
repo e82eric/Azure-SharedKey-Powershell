@@ -32,6 +32,9 @@ function new_simple_options_patcher {
     if($null -eq $options.ProcessResponse) {
       $options.ProcessResponse = $options.OnResponse
     }
+		if($null -eq $options.ProcessResponse) {
+			$options.ProcessResponse = $parse_null
+		}
 	}
 	$obj
 }

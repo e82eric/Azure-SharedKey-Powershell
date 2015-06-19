@@ -53,17 +53,25 @@ function new_request_builder {
 		
 		if($null -ne $content) {
 			if($content -is [string]) {
-				$this._use_disposeable(($streamWriter = New-Object IO.StreamWriter($request.GetRequestStream())), {
-					$streamWriter.Write($content)
-					$streamWriter.Flush()
-					$streamWriter.Close()
+				Write-Host "INFO: Executing rest api request. Url: $($options.Url), Verb: $($options.Verb), Content: $($content)"
+				$this._use_disposeable(($requestStream = $request.GetRequestStream()), {
+					$this._use_disposeable(($streamWriter = New-Object IO.StreamWriter($requestStream)), {
+						$streamWriter.Write($content)
+						$streamWriter.Flush()
+						$streamWriter.Close()
+					})
+					$requestStream.Close()
 				})
 			} else {
+				Write-Host "INFO: Executing rest api request. Url: $($options.Url), Verb: $($options.Verb), Content: binary"
 				$request.ContentLength = $options.Content.Length
-				$requestStream = $request.GetRequestStream()
-				$requestStream.Write($options.Content, 0, $options.Content.Length)
-				$requestStream.Close()
+				$this._use_disposeable(($requestStream = $request.GetRequestStream()), {
+					$requestStream.Write($options.Content, 0, $options.Content.Length)
+					$requestStream.Close()
+				})
 			}
+		} else {
+			Write-Host "INFO: Executing rest api request. Url: $($options.Url), Verb: $($options.Verb)"
 		}
 		$request
 	}

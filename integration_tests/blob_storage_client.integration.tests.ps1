@@ -1,8 +1,8 @@
 param(
 	$subscriptionId,
-	$thumbprint,
 	$storageAccountName,
 	$dataCenter,
+	$loginHint,
 	$libDir = (Resolve-Path ..\lib).Path)
 $ErrorActionPreference = "stop"
 
@@ -11,7 +11,14 @@ $cert = Get-Item cert:\CurrentUser\My\$thumbprint
 . "$libDir\management_rest_client.ps1" $libDir
 . "$libDir\blob_storage_client.ps1" $libDir
 
-$script:restClient = new_subscription_management_rest_client_with_cert_auth $subscriptionId $cert
+$managementRestClient = new_management_rest_client_with_adal $loginHint
+$subscriptions = $managementRestClient.Request(@{ Verb = "GET"; Url = "https://management.core.windows.net/Subscriptions"; OnResponse = $parse_xml;})
+$subscriptionAadTenantId = ($subscriptions.Subscriptions.Subscription | ? { $_.SubscriptionId -eq $subscriptionId }).AADTenantId
+if($null -eq $subscriptionAadTenantId) {
+	throw "Error: Unable to find aad tenant id for subscription: $($subscriptionId)"
+}
+
+$script:restClient = new_subscription_management_rest_client_with_adal $subscriptionId $subscriptionAadTenantId $loginHint
 
 function create_storage_account { param($name, $dataCenter)
 	$storageAccountDef = `

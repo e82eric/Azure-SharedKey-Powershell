@@ -1,8 +1,9 @@
 param(
 	$aadTenantId,
-	$name = "aadinttests",
-	$apiVersion = "1.5",
-	$restLibDir = (Resolve-Path "..\lib").Path
+	$name,
+	$loginHint,
+	$restLibDir = (Resolve-Path "..\lib").Path,
+	$apiVersion = "1.5"
 )
 $ErrorActionPreference = "stop"
 
@@ -10,7 +11,7 @@ $ErrorActionPreference = "stop"
 
 [Reflection.Assembly]::LoadWithPartialName("System.Web.Extensions") | Out-Null
 
-$script:restClient = new_azure_ad_rest_client $aadTenantId
+$script:restClient = new_azure_ad_rest_client $aadTenantId $loginHint
 $script:serializer = New-Object Web.Script.Serialization.JavaScriptSerializer
 $script:apiVersion = $apiVersion
 

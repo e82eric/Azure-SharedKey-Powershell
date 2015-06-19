@@ -20,9 +20,7 @@ function new_blob_authorization_header_patcher { param(
 		$canonicalizedResources = $this.CanonicalizedResourcesParser.execute($uriElements.Operations, $uriElements.Resource)
 		$canonicalizedHeaders = $this.CanonicalizedHeadersParser.execute($options.Headers)
 		$signature = $this.SignatureParser.execute($options.Verb, $options.Content, $options.ContentHash, $options.ContentType, $canonicalizedHeaders, $canonicalizedResources)
-		Write-Host "***Signature***"
-		Write-Host $signature
-		Write-Host "***End Signature***"
+		Write-Verbose "Storage string to sign: $($signature)"
 		$signatureHash = $this.SignatureHashParser.execute($signature)
 		$options.AuthorizationHeader = $this.AuthorizationHeaderParser.execute($signatureHash)
 	}

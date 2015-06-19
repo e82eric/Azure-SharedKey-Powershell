@@ -1,17 +1,22 @@
 param(
 	$subscriptionId,
-	$thumbprint,
 	$storageAccountName,
 	$dataCenter,
+	$loginHint,
 	$libDir = (Resolve-Path ..\lib).Path)
 $ErrorActionPreference = "stop"
-
-$cert = Get-Item cert:\CurrentUser\My\$thumbprint
 
 . "$libDir\management_rest_client.ps1" $libDir
 . "$libDir\table_storage_client.ps1" $libDir
 
-$script:restClient = new_subscription_management_rest_client_with_cert_auth $subscriptionId $cert
+$managementRestClient = new_management_rest_client_with_adal $loginHint
+$subscriptions = $managementRestClient.Request(@{ Verb = "GET"; Url = "https://management.core.windows.net/Subscriptions"; OnResponse = $parse_xml;})
+$subscriptionAadTenantId = ($subscriptions.Subscriptions.Subscription | ? { $_.SubscriptionId -eq $subscriptionId }).AADTenantId
+if($null -eq $subscriptionAadTenantId) {
+	throw "Error: Unable to find aad tenant id for subscription: $($subscriptionId)"
+}
+
+$restClient = new_subscription_management_rest_client_with_adal $subscriptionId $subscriptionAadTenantId $loginHint
 
 function create_storage_account { param($name, $dataCenter)
 	$storageAccountDef = `
@@ -24,7 +29,7 @@ function create_storage_account { param($name, $dataCenter)
 			<AccountType>Standard_LRS</AccountType>
 		</CreateStorageServiceInput>"
 
-	$script:restClient.ExecuteOperation("POST", "services/storageservices", $storageAccountDef)
+	$script:restClient.ExecuteOperation("POST", "services/storageservices", $storageAccountDef) | Out-Null
 }
 
 function delete_storage_account { param($name)
@@ -36,7 +41,7 @@ function delete_storage_account { param($name)
 	$resource = $result.StorageServices.StorageService | ? { $_.ServiceName -eq $name }
 
 	if($resource -ne $null) {
-		$script:restClient.ExecuteOperation("DELETE", "services/storageservices/$name", (New-Object byte[] 0))
+		$script:restClient.ExecuteOperation("DELETE", "services/storageservices/$name", (New-Object byte[] 0)) | Out-Null
 	}
 }
 
@@ -55,8 +60,22 @@ function create_table { param($tableName, $tableClient)
 		ContentType = "application/json";
 		Accept = "application/json;odata=nometadata";
 		Resource = "tables";
-		Content = "{`"TableName`":`"$tableName`"}" 
+		Content = "{`"TableName`":`"$tableName`"}";
 	})
+}
+
+function create_multiple_tables { param($tableNamePrefix, $tableClient)
+	1..300 | % {
+		$tableName = "$($tableNamePrefix)$($_)"
+		Write-Host "INFO: Creating table $($tableName)"
+		$tableClient.Request(@{
+			Verb = "POST";
+			ContentType = "application/json";
+			Accept = "application/json;odata=nometadata";
+			Resource = "tables";
+			Content = "{`"TableName`":`"$tableName`"}";
+		})
+	}
 }
 
 function delete_table { param($tableName, $tableClient)
@@ -135,7 +154,7 @@ function query_tables { param($tableClient)
 		Accept = "application/json;odata=nometadata";
 		Resource = "tables()";
 		Content = $entity;
-		ProcessResponse = $parse_json
+		ProcessResponse = $parse_json;
 	})
 
 	$entities = $result 
@@ -155,6 +174,7 @@ $tableClient = new_table_storage_client $storageAccountName $storageKey
 
 $tableName = "atest"
 create_table $tableName $tableClient
+create_multiple_tables $tableName $tableClient
 insert_entity $tableName '{ "Name":"n1","RowKey":"1","PartitionKey":"1" }' $tableClient
 merge_entity $tableName "1" "1" '{ "Name":"n2","RowKey":"1","PartitionKey":"1" }' $tableClient
 merge_entity $tableName "1" "2" '{ "Name":"n2","RowKey":"2","PartitionKey":"1" }' $tableClient

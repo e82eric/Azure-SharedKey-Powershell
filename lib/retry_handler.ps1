@@ -4,9 +4,13 @@ function new_retry_handler { param($exceptionResponseHandler)
 		$result = $exception
 		$statusName = $null
 		while($statusName -ne "WebExceptionStatus") {
-			if($null -eq $result.InnerException) { break }
 			if($null -ne $result.Status) {
 				$statusName = $result.Status.GetType().Name
+				Write-Verbose "Excpetion status: $($statusName)"
+				break
+			}
+			if($null -eq $result.InnerException) { 
+				Write-Warning "No web exception was found"
 				break
 			}
 			$result = $result.InnerException
@@ -28,6 +32,7 @@ function new_retry_handler { param($exceptionResponseHandler)
 				& $retryAction
 				$running = $false	
 			} catch {
+				Write-Verbose "Exception caught in rest request"
 				$e = $this._getWebException($_.Exception)
 				$this._writeResponse($e)
 				if($e.Status -eq [Net.WebExceptionStatus]::Timeout) {
