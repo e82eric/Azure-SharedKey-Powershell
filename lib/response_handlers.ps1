@@ -1,5 +1,5 @@
 $parse_text = { param ($response)
-	Write-Verbose "Process response as text"
+	Write-Debug "Process response as text"
 	$stream = $response.GetResponseStream()
 	$reader = New-Object IO.StreamReader($stream)
 	$result = $reader.ReadToEnd()
@@ -8,7 +8,7 @@ $parse_text = { param ($response)
 	$result
 }
 $parse_xml = { param ($response)
-	Write-Verbose "Process response as xml"
+	Write-Debug "Process response as xml"
 	$stream = $response.GetResponseStream()
 	$reader = New-Object IO.StreamReader($stream)
 	$result = $reader.ReadToEnd()
@@ -17,7 +17,7 @@ $parse_xml = { param ($response)
 	[xml]$result
 }
 $parse_json = { param($response)
-	Write-Verbose "Process response as json"
+	Write-Debug "Process response as json"
 	[Reflection.Assembly]::LoadWithPartialName("System.Web.Extensions") | Out-Null
 	$stream = $response.GetResponseStream()
 	$reader = New-Object IO.StreamReader($stream)
@@ -28,7 +28,7 @@ $parse_json = { param($response)
 	$jsonSerializer.DeserializeObject($result)
 }
 $write_host = { param($response)
-	Write-Verbose "Process response as Write-Host"
+	Write-Debug "Process response as Write-Host"
 	$stream = $response.GetResponseStream()
 	$reader = New-Object IO.StreamReader($stream)
 	$result = $reader.ReadToEnd()
@@ -37,7 +37,7 @@ $write_host = { param($response)
 	Write-Host $result
 }
 $write_response = { param($response)
-	Write-Verbose "Process response as Write-Host Response content => {0}"
+	Write-Debug "Process response as Write-Host Response content => {0}"
 	$reqstream = $response.GetResponseStream()
 	$sr = New-Object IO.StreamReader $reqstream
 	$result = $sr.ReadToEnd()
@@ -46,12 +46,12 @@ $write_response = { param($response)
 	Write-Host "Response content => $result"
 }
 $parse_null = { param($response)
-	Write-Verbose "Process response as null"
+	Write-Debug "Process response as null"
 	$reqstream = $response.GetResponseStream()
 	$reqstream.Close()
 }
 $parse_ms_headers = { param ($response)
-	Write-Verbose "Process response as ms headers"
+	Write-Debug "Process response as ms headers"
 	$result = @()
 	$response.Headers | % {
 		if($_.StartsWith("x-ms")) {

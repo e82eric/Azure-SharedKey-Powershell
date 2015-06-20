@@ -19,23 +19,23 @@ function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantI
   }
 	$obj | Add-Member -Type ScriptMethod _getToken {
 		$result = $null
-		Write-Verbose "checking for cache file $($this.FilePath)"
+		Write-Debug "checking for cache file $($this.FilePath)"
 		if ((Test-Path $this.FilePath)) {
 			$tokens = $this._getTokensFromFile()
 			$trimmedTokens = $this._trimExpired($tokens)
-			Write-Verbose "checking for cached token $($this.CacheIdentifier)"
+			Write-Debug "checking for cached token $($this.CacheIdentifier)"
 			$savedToken = $trimmedTokens | ? { $this.CacheIdentifier -eq $this.CacheIdentifier -and $_.Resource -eq $this.Resource -and $_.AadTenantId -eq $this.AadTenantId } | Select -First 1
 			if($null -ne $savedToken) {
-				Write-Verbose "found cached token $($this.CacheIdentifier)"
+				Write-Debug "found cached token $($this.CacheIdentifier)"
 				$adalToken = $this.TokenProvider.GetTokenByRefreshToken($savedToken.RefreshToken)
 				$result = $this._saveTokens($adalToken, $trimmedTokens)
 			} else {
-				Write-Verbose "could not find cached token $($this.CacheIdentifier)"
+				Write-Debug "could not find cached token $($this.CacheIdentifier)"
 				$adalToken = $this.TokenProvider.GetToken()
 				$result = $this._saveTokens($adalToken, $trimmedTokens)
 			}
 		} else {
-			Write-Verbose "could not find a cache file $($this.FilePath)"
+			Write-Debug "could not find a cache file $($this.FilePath)"
 			$adalToken = $this.TokenProvider.GetToken()
 			$result = $this._saveTokens($adalToken, @())
 		}
