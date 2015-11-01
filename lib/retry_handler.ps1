@@ -5,8 +5,8 @@ function new_retry_handler { param($exceptionResponseHandler)
 		$statusName = $null
 		while($statusName -ne "WebExceptionStatus") {
 			if($null -ne $result.Status) {
-				$statusName = $result.Status
-				Write-Verbose "Excpetion status: $($statusName)"
+				$statusName = $result.Status.Name
+				Write-Verbose "Excpetion Status: $($result.Message), StatusCode: $($result.Response.StatusCode)"
 				break
 			}
 			if($null -eq $result.InnerException) { 
@@ -40,7 +40,7 @@ function new_retry_handler { param($exceptionResponseHandler)
 						throw $e
 					}
 					$numberOfRetries++
-					Write-Host "Retrying request due to timeout. Attempt $numberOfRetries of $retryCount"
+					Write-Host "INFO: Retrying request due to timeout. Attempt $numberOfRetries of $retryCount"
 				}
 				else	{ 
 					throw $e

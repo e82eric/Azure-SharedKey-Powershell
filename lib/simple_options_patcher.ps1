@@ -14,6 +14,9 @@ function new_simple_options_patcher {
 		DefaultTimeout = $defaultTimeout;
 	}
 	$obj | Add-Member -Type ScriptMethod execute { param($options)
+		if($null -eq $options.ThrowWebException) {
+			$options.ThrowWebException = $true
+		}
 		if($null -eq $options.Scheme) {
 			$options.Scheme = $this.DefaultScheme	
 		}

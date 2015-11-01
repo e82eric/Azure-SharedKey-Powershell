@@ -5,18 +5,55 @@ function new_request_handler { param($requestBuilder, $retryHandler)
 		RequestBuilder = $requestBuilder;
 		RetryHandler = $retryHandler;
 	}
+	$obj | Add-Member -Type ScriptMethod _getWebException { param($exception)
+		$result = $exception
+		$statusName = $null
+		while($statusName -ne "WebExceptionStatus") {
+			if($null -ne $result.Status) {
+				$statusName = $result.Status.GetType().Name
+				Write-Verbose "Excpetion Status: $($result.Message), StatusCode: $($result.Response.StatusCode)"
+				break
+			}
+			if($null -eq $result.InnerException) { 
+				Write-Warning "No web exception was found"
+				break
+			}
+			$result = $result.InnerException
+		}
+		$result
+	}
 	$obj | Add-Member -Type ScriptMethod execute { param ($options)
 		$state = @{ Result = $null }
 		$requestBuilder = $this.RequestBuilder
 
 		$this.RetryHandler.execute($options.RetryCount, {
 			$request = $requestBuilder.execute($options)
-			$response = $request.GetResponse()
+			$response = $null
+			try {
+				$response = $request.GetResponse()
+				$state.SuccessStatusCode = $true
+				$state.StatusCode = $response.StatusCode
+			} catch {
+				if($false -eq $options.ThrowWebException) {
+					Write-Verbose "ThrowWebException flag set to false. Not throwing exception."
+					$e = $this._getWebException($_.Exception)
+					$state.SuccessStatusCode = $false
+					$state.StatusCode = $e.Response.StatusCode
+					$response = $e.Response
+				} else {
+					Write-Verbose "ThrowWebException flag set to true. Throwing exception."
+					throw $_.Exception
+				}
+			}
 			if($null -ne $options.ProcessResponse) {
 				$state.Result = & $options.ProcessResponse $response
 			}
 		})
-		$state.Result
+		if($false -eq $state.SuccessStatusCode) {
+			$state
+		} else {
+			$state.Result
+		}
 	}
 	$obj
 }
