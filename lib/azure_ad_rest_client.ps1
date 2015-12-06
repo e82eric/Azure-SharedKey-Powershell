@@ -40,7 +40,7 @@ function new_azure_ad_rest_client {
 	} else {
 		$aadTokenProvider = new_aad_token_provider_with_login $aadResource $aadTenantId -LoginHint $loginHint
 	}
-	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $adTenantId $aadResource $aadTokenProvider $fileTokenCachePath
+	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath
 	$requestHandler = new_request_handler (new_request_builder) (new_retry_handler $write_response)
 
 	$baseOptionsPatcher = new_simple_options_patcher `

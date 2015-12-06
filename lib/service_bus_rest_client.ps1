@@ -11,6 +11,8 @@ $ErrorActionPreference = "stop"
 . "$restLibDir\config.ps1"
 . "$restLibDir\acs_wrap_token_patcher.ps1"
 . "$restLibDir\acs_rest_client.ps1" $restLibDir
+. "$restLibDir\service_bus_shared_access_signature_header_patcher.ps1"
+. "$restLibDir\service_bus_shared_access_signature_provider.ps1" $restLibDir
 
 function new_service_bus_rest_client {
 	param(
@@ -34,6 +36,38 @@ function new_service_bus_rest_client {
 	$acsRestClient = new_acs_rest_client $namespace $key
 	
 	$authorizationPatcher = new_acs_wrap_token_patcher $namespace $identityName $key $acsRestClient
+
+	$optionsPatcher = new_resource_manager_options_patcher `
+		$authorizationPatcher `
+		$baseOptionsPatcher `
+		"$($namespace).servicebus.windows.net"
+
+	$obj = new_rest_client $requestHandler $optionsPatcher
+	$obj
+}
+
+function new_service_bus_rest_client_with_sas_auth {
+	param(
+		[ValidateNotNullOrEmpty()]$namespace = $(throw "namespace is mandatory"),
+		[ValidateNotNullOrEmpty()]$key = $("key is mandatory"),
+		[ValidateNotNullOrEmpty()]$keyName = $("key name is mandatory"),
+		$defaultScheme = $(__.azure.rest.get_config "scheme"),
+		$defaultRetryCount = $(__.azure.rest.get_config "retry_count"),
+		$defaultTimeout = $(__.azure.rest.get_config "timeout"),
+		$defaultContentType = $(__.azure.rest.get_config "acs_content_type")
+	)
+
+	$requestHandler = new_request_handler (new_request_builder) (new_retry_handler $write_response)
+
+	$baseOptionsPatcher = new_simple_options_patcher `
+		$defaultRetryCount `
+		$defaultScheme `
+		$defaultContentType `
+		$defaultTimeout
+
+	$sasProvider = new_service_bus_shared_access_signature_provider $namespace $key $keyName
+	
+	$authorizationPatcher = new_service_bus_shared_access_signature_header_patcher $sasProvider
 
 	$optionsPatcher = new_resource_manager_options_patcher `
 		$authorizationPatcher `

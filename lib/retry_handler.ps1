@@ -5,7 +5,7 @@ function new_retry_handler { param($exceptionResponseHandler)
 		$statusName = $null
 		while($statusName -ne "WebExceptionStatus") {
 			if($null -ne $result.Status) {
-				$statusName = $result.Status.GetType().Name
+				$statusName = $result.Status
 				Write-Verbose "Excpetion status: $($statusName)"
 				break
 			}
