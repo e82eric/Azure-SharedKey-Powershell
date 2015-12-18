@@ -1,202 +1,113 @@
 param(
 	$workingDirectory = (Resolve-Path .\).Path,
-	$restLibDir = (Resolve-Path "$workingDirectory\..\lib").Path,
-	$adalLibDir = (Resolve-Path "$workingDirectory\..\libs").Path
+	$restLibDir = (Resolve-Path "$($workingDirectory)\..\lib").Path,
+	$adalLibDir = (Resolve-Path "$($workingDirectory)\..\libs").Path
 )
 
-. "$restLibDir\management_rest_client.ps1" $restLibDir $adalLibDir
-. "$restLibDir\shared_access_signature_provider.ps1" $restLibDir
-. "$restLibDir\blob_storage_client.ps1" $restLibDir
+. "$($restLibDir)\resource_manager_rest_client.ps1" $restLibDir $adalLibDir
+. "$($restLibDir)\blob_storage_client.ps1" $restLibDir
+. "$($restLibDir)\shared_access_signature_provider.ps1" $restLibDir
+. "$($workingDirectory)\azure_resource_management_base.ps1"
+. "$($workingDirectory)\azure_resource_group_management.ps1"
+. "$($workingDirectory)\azure_resource_management.ps1"
 
 $ErrorActionPreference = "stop"
 
 function new_azure_vm (
-	$name,
-	$adminUser,
-	$workingDirectory,
-	$installersDirectory,
-	$isoDrive,
-	$storageAccount,
-	$installersContainer,
-	$instanceSize,
-	$affinityGroup,
-	$serviceName,
-	$deploymentName,
-	$network,
-	$subnet,
-	$libDir,
-	$installers,
-	$subscriptionId,
-	$subscriptionAdTenantId,
-	$vpnSubnet) {
-	$deploymentName = "$($serviceName)deployment"
+	[ValidateNotNullOrEmpty()] $resourceGroup = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $dataCenter = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $template = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $templateParameters = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $name = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $publicIpName = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $workingDirectory = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $installersDirectory = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $isoDrive = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $installersStorageAccount = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $installersStorageKey = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $installersContainer = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $subscriptionId = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $subscriptionAdTenantId = $(throw "empty parameter"),
+	[ValidateNotNullOrEmpty()] $loginHint = $(throw "empty parameter")
+) {
+	Write-Host "INFO: new_zure_vm"
+	Write-Host "INFO: --resourceGroup $($resourceGroup)"
+	Write-Host "INFO: --dataCenter $($dataCenter)"
+	Write-Host "INFO: --name $($name)"
+	Write-Host "INFO: --publicIpName $($publicIpName)"
+	Write-Host "INFO: --workingDirectory $($workingDirectory)"
+	Write-Host "INFO: --installersDirectory $($installersDirectory)"
+	Write-Host "INFO: --isoDrive $($isoDrive)"
+	Write-Host "INFO: --installersStorageAccount $($installersStorageAccount)"
+	Write-Host "INFO: --installersStorageKey $($installersStorageKey)"
+	Write-Host "INFO: --installersContainer $($installersContainer)"
+	Write-Host "INFO: --subscriptionId $($subscriptionId)"
+	Write-Host "INFO: --subscriptionAdTenantId $($subscriptionAdTenantId)"
+	Write-Host "INFO: --loginHint $($loginHint)"
 
-	$restClient = new_subscription_management_rest_client_with_adal $subscriptionId $subscriptionAdTenantId
-
-	$storageKeysResult = $restClient.Request(@{ Verb = "GET"; Resource = "services/storageservices/$storageAccount/keys"; OnResponse = $parse_xml })
-	$storageAccountKey = $storageKeysResult.StorageService.StorageServiceKeys.Secondary
+	$resourceManagerRestClient = new_resource_manager_rest_client $subscriptionId $subscriptionAadTenantId $loginHint
+	$azureResourceGroupManagement = new_azure_resource_group_management $resourceManagerRestClient
+	$azureResourceManagement = new_azure_resource_management $resourceManagerRestClient $azureResourceGroupManagement
 
 	$obj = new_vm_base $name $installersDirectory $isoDrive
-	$obj | Add-Member -Type NoteProperty StorageAccount $storageAccount
-	$obj | Add-Member -Type NoteProperty StorageAccountKey $storageAccountKey
+	$obj | Add-Member -Type NoteProperty ResourceGroup $resourceGroup
+	$obj | Add-Member -Type NoteProperty DataCenter $dataCenter
+	$obj | Add-Member -Type NoteProperty Template $template
+	$obj | Add-Member -Type NoteProperty TemplateParameters $templateParameters
+	$obj | Add-Member -Type NoteProperty InstallersStorageAccount $installersStorageAccount
+	$obj | Add-Member -Type NoteProperty InstallersStorageAccountKey $installersStorageKey
 	$obj | Add-Member -Type NoteProperty InstallersContainer $installersContainer
-	$obj | Add-Member -Type NoteProperty InstanceSize $instanceSize
-	$obj | Add-Member -Type NoteProperty Network $network
-	$obj | Add-Member -Type NoteProperty Subnet $subnet
-	$obj | Add-Member -Type NoteProperty ServiceName $serviceName
-	$obj | Add-Member -Type NoteProperty DeploymentName $deploymentName
-	$obj | Add-Member -Type NoteProperty AffinityGroup $affinityGroup;
-	$obj | Add-Member -Type NoteProperty RestClient $restClient;
-	$obj | Add-Member -Type NoteProperty VpnSubnet $vpnSubnet;
+	$obj | Add-Member -Type NoteProperty RestClient $resourceManagerRestClient
+	$obj | Add-Member -Type NoteProperty AzureResourceGroupManagement $azureResourceGroupManagement
+	$obj | Add-Member -Type NoteProperty AzureResourceManagement $azureResourceManagement
+	$obj | Add-Member -Type NoteProperty PublicIpName $publicIpName
 
-	Write-Host $obj
-
-	$obj | Add-Member -Type ScriptMethod _createService { 
-		$label =  [System.Convert]::ToBase64String([System.Text.Encoding]::UNICODE.GetBytes($this.ServiceName))
-		$serviceDef = "<?xml version=`"1.0`" encoding=`"utf-8`"?>
-		<CreateHostedService xmlns=`"http://schemas.microsoft.com/windowsazure`">
-		  <ServiceName>$($this.ServiceName)</ServiceName>
-		  <Label>$label</Label>
-		  <Description></Description>
-		  <AffinityGroup>$($this.AffinityGroup)</AffinityGroup>
-		</CreateHostedService>"
-		$this.RestClient.ExecuteOperation("POST", "services/hostedservices", $serviceDef)
-	}
 	$obj | Add-Member -Type ScriptMethod  _validateInstallers {
-		$blobClient = new_blob_storage_client $this.StorageAccount $this.StorageAccountKey
+		Write-Host "INFO: ValidateInstallers"
+		$blobClient = new_blob_storage_client $this.InstallersStorageAccount $this.InstallersStorageAccountKey
 
 		$blobsXml = $blobClient.Request(@{ Verb = "GET"; Resource = "$($this.InstallersContainer)`?restype=container&comp=list"; ProcessResponse = $parse_xml })
 		$blobs = $blobsXml.EnumerationResults.Blobs.Blob
 
-		Write-Host "start validating installers"
 		$this.Installers.GetEnumerator() | % {
 			$installer = $_.Value 
 			$blob = $blobs | ? { $_.Name -eq $installer }
 
 			if($null -eq $blob) {
-				throw "could not find $installer" 
+				throw "could not find $($installer)" 
 			} else {
-				Write-Host "found $installer"
+				Write-Host "INFO: --Found installer: $($installer)"
 			}
 		}
-		Write-Host "done validating installers"
+		Write-Host "INFO: --Done"
 	}
-	$obj | Add-Member -Type ScriptMethod _createVm {
-		$this._createService()
-		$imagesResult = $this.RestClient.Request(@{ Verb = "GET"; Resource = "services/images"; OnResponse = $parse_xml; Version="2013-08-01" })
-		$imageName = ($imagesResult.Images.OsImage | ? { $_.Category -eq "Microsoft Windows Server Group" -And $_.Label-Match "Windows Server 2008 R2 SP1" } | Sort { $_.PublishedDate } | Select -Last 1).Name
-		$roleDef = "<RoleName>$($this.Name)</RoleName>
-		<RoleType>PersistentVMRole</RoleType>   
-		<ConfigurationSets>
-			<ConfigurationSet>
-				<ConfigurationSetType>NetworkConfiguration</ConfigurationSetType>
-				<InputEndpoints>
-					<InputEndpoint>
-						<LocalPort>3389</LocalPort>
-						<Name>RemoteDesktop</Name>
-						<Protocol>tcp</Protocol>
-						<EnableDirectServerReturn>false</EnableDirectServerReturn>
-						<EndpointAcl>
-							<Rules>
-								<Rule>
-									<Order>1</Order>
-									<Action>permit</Action>
-									<RemoteSubnet>$($this.VpnSubnet)</RemoteSubnet>
-									<Description>Permit Point to Site VPN</Description>
-								</Rule>
-							</Rules>
-						</EndpointAcl>
-					</InputEndpoint>
-					<InputEndpoint>
-						<LocalPort>5986</LocalPort>
-						<Name>WinRmHTTPs</Name>
-						<Protocol>tcp</Protocol>
-						<EnableDirectServerReturn>false</EnableDirectServerReturn>
-						<EndpointAcl>
-							<Rules>
-								<Rule>
-									<Order>1</Order>
-									<Action>permit</Action>
-									<RemoteSubnet>$($this.VpnSubnet)</RemoteSubnet>
-									<Description>Permit Point to Site VPN</Description>
-								</Rule>
-							</Rules>
-						</EndpointAcl>
-					</InputEndpoint>
-				</InputEndpoints>
-				<StoredCertificateSettings />
-			</ConfigurationSet>
-			<ConfigurationSet>
-				<ConfigurationSetType>WindowsProvisioningConfiguration</ConfigurationSetType>
-				<InputEndpoints />
-				<SubnetNames>
-				    <SubnetName>$($this.SubNet)</SubnetName>
-				</SubnetNames>
-				<ComputerName>$($this.Name)</ComputerName>
-				<AdminPassword>$($this.AdminUser.Password.PlainText)</AdminPassword>
-				<ResetPasswordOnFirstLogon>false</ResetPasswordOnFirstLogon>
-				<EnableAutomaticUpdates>true</EnableAutomaticUpdates>
-				<StoredCertificateSettings />
-				<WinRM>
-					<Listeners>
-						<Listener>
-							<Protocol>Https</Protocol>
-						</Listener>
-					</Listeners>
-				</WinRM>
-				<AdminUsername>$($this.AdminUser.Name)</AdminUsername>
-			</ConfigurationSet>
-		</ConfigurationSets>
-		<DataVirtualHardDisks />
-		<Label>$($this.Name)</Label>
-		<OSVirtualHardDisk>
-		<MediaLink>https://$($this.StorageAccount).blob.core.windows.net/vhds/$($vmName)_OS.vhd</MediaLink>
-		<SourceImageName>$imageName</SourceImageName>
-		</OSVirtualHardDisk>
-		<RoleSize>$($this.InstanceSize)</RoleSize>"
-		
-		$vmDef = "<Deployment xmlns=`"http://schemas.microsoft.com/windowsazure`" xmlns:i=`"http://www.w3.org/2001/XMLSchema-instance`">
-			<Name>$($this.DeploymentName)</Name>
-			<DeploymentSlot>Production</DeploymentSlot>
-			<Label>$($this.DeploymentName)</Label>      
-			<RoleList>
-				<Role>
-					$roleDef
-				</Role>
-		  </RoleList>
-		  <VirtualNetworkName>$($this.Network)</VirtualNetworkName>
-		</Deployment>"
-	
-		Write-Host $obj
-		Write-Host $vmDef
-		$this.RestClient.ExecuteOperation("POST","services/hostedservices/$($this.ServiceName)/deployments", $vmDef)
-		$this._waitForBoot()
-
+	$obj | Add-Member -Type ScriptMethod _createVM {
+		Write-Host "INFO: CreateVm"
+		Write-Host "INFO: --CreateResourceGroup"
+		$this.AzureResourceGroupManagement.CreateResourceGroup($this.ResourceGroup, $this.DataCenter) | Out-Null
+		Write-Host "INFO: --DeployTemplate"
+		$this.AzureResourceManagement.DeployTemplate($this.ResourceGroup, $this.DataCenter, $this.Template, $this.TemplateParameters) | Out-Null
+	}
+	$obj | Add-Member -Type ScriptMethod _waitForBoot {
+		Write-Host "INFO: Wait for boot"
+		Write-Host "INFO: --Azure ARM template engine handles this now"
 	}
 	$obj | Add-Member -Type ScriptMethod _setWinRmUri {
-		$roleResult = $this.RestClient.Request(@{ Verb = "GET"; Resource = "services/hostedservices/$($this.ServiceName)/deployments/$($this.DeploymentName)/roles/$($this.Name)"; OnResponse = $parse_xml })
-		$deploymentResult = $this.RestClient.Request(@{ Verb = "GET"; Resource = "services/hostedservices/$($this.ServiceName)/deployments/$($this.DeploymentName)"; OnResponse = $parse_xml })
-		$ipAddress =  $deploymentResult.Deployment.RoleInstanceList.RoleInstance.IpAddress
-		$winRmPort = ($roleResult.PersistentVMRole.ConfigurationSets.ConfigurationSet.InputEndpoints.InputEndpoint | ? { $_.Name -eq "WinRMHTTPs" }).LocalPort
-		$this.WinRmUri = "https://$($ipAddress):$winRmPort"
-		Write-Host $this.WirRmUri
-	}
-	$obj | Add-Member -Type ScriptMethod _waitForBoot -Value {
-		while($true) {
-			$result = $this.RestClient.Request(@{ Verb = "GET"; Resource = "services/hostedservices/$($this.ServiceName)/deployments/$($this.DeploymentName)"; OnResponse = $parse_xml })
-			$powerState = ($result.Deployment.RoleInstanceList.RoleInstance | ? { $_.InstanceName -eq $vmName }).Powerstate
-			$instanceStatus = ($result.Deployment.RoleInstanceList.RoleInstance | ? { $_.InstanceName -eq $vmName }).InstanceStatus
-			Write-Host "Power State: $powerState"
-			Write-Host "Instance Status: $instanceStatus"
-			if($powerState -eq "Started" -And $instanceStatus -eq "ReadyRole") {
-				break
-			}
-			Start-Sleep -Seconds 5
-		}
+		Write-Host "INFO: SetWinRmUri"
+		$ipDef = $this.RestClient.Request(@{
+			Verb = "GET";
+			Resource = "resourceGroups/$($this.ResourceGroup)/providers/Microsoft.Network/publicIPAddresses/$($this.PublicIpName)?api-Version=2015-06-15";
+			OnResponse = $parse_json;
+		})
+		$ipAddress = $ipDef.properties.ipAddress
+		Write-Host "INFO: --ipAddress: $($ipAddress)"
+		$this.WinRmUri = "http://$($ipAddress):5985"
+		Write-Host "INFO: --uri: $($this.WinRmUri)"
 	}
 	$obj | Add-Member -Type ScriptMethod CreatePSSession { param($authentication)
-		Write-Host "Authentication: $authentication"
-		Write-Host "Connection Uri: $($this.WinRmUri)" 
+		Write-Host "INFO: CreatePSSession"
+		Write-Host "INFO: --Authentication: $($authentication)"
+		Write-Host "INFO: --Connection Uri: $($this.WinRmUri)" 
 		New-PSSession -ConnectionUri $this.WinRmUri -Credential $this.AdminUser.Credential -Authentication $authentication -SessionOption (New-PSSessionOption -SkipCACheck -SkipCNCheck)
 	}
 	$obj | Add-Member -Type ScriptMethod _waitForWinRm -Value {
@@ -207,7 +118,7 @@ function new_azure_vm (
 
 		while(!$sessionCreated) {
 			try {
-				Write-Host "Waiting for boot CredSSP attempt $numberOfTries"
+				Write-Host "INFO: Waiting for boot CredSSP attempt. $($numberOfTries)"
 				if($this.WinRmUri -eq $null) { $this._setWinRmUri() }
 				$session = New-PsSession -ConnectionUri $this.WinRmUri -Credential $this.AdminUser.Credential -Authentication Negotiate -SessionOption (New-PSSessionOption -SkipCACheck -SkipCNCheck)
 				$sessionCreated = $true
@@ -228,7 +139,8 @@ function new_azure_vm (
 		}
 	}
 	$obj | Add-Member -Type ScriptMethod _downloadInstallers -Value {
-		$sasProvider = new_shared_access_signature_provider $this.StorageAccount $this.StorageAccountKey
+		Write-Host "INFO: DownloadInstallers"
+		$sasProvider = new_shared_access_signature_provider $this.InstallersStorageAccount $this.InstallersStorageAccountKey
 
 		$this.RemoteSession({ param($session)
 			$session.Execute({ param($context)
@@ -240,7 +152,7 @@ function new_azure_vm (
 				$url = $sasProvider.GetUrl("$($this.InstallersContainer)/$($_.Value)", "b", "r", [DateTime]::UtcNow.AddMinutes(1))
 				$session.Execute({ param($context, $installerName, $installerSasUrl)
 					$filePath = "$($context.InstallersDirectory)\$installerName"	
-					Write-Host "trying to download installer: $installerName $installerSasUrl $filePath"
+					Write-Host "INFO: --Trying to download installer. installerName: $($installerName), installerSasUrl: $($installerSasUrl), filePath: $($filePath)"
 					$webRequest = [Net.WebRequest]::Create($installerSasUrl)
 					$webRequest.Method = "GET"
 					$response = $webRequest.GetResponse()

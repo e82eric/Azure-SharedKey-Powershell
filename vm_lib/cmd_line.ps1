@@ -3,21 +3,22 @@ $ErrorActionPreference = "stop"
 function new_cmd_line ($isoDirectory, $installerDirectory) {
 	$obj = New-Object psobject -Property @{ IsoDirectory = $isoDirectory; InstallerDirectory = $installerDirectory }
 	$obj | Add-Member -Type ScriptMethod -Name InstallerExecute -Value { param($fileName, $arguments, $successExitCodes) 
+		Write-Host "INFO: InstallerExecute. FileName: $($fileName), Arguments: $($arguments), SuccessExitCodes: $($successExitCodes)"
 		$this.Execute("$($this.InstallerDirectory)\$fileName", $arguments, $successExitCodes) 
 	}
 	$obj | Add-Member -Type ScriptMethod -Name IsoExecute -Value { param($fileName, $arguments, $successExitCodes) 
+		Write-Host "INFO: IsoExecute. FileName: $($fileName), Arguments: $($arguments), SuccessExitCodes: $($successExitCodes)"
 		$this.Execute("$($this.IsoDirectory)\$fileName", $arguments, $successExitCodes) 
 	}
 	$obj | Add-Member -Type ScriptMethod -Name AddToPath -Value { param($pathToAdd)
+		Write-Host "INFO: AddToPath. PathToAdd: $($pathToAdd)"
 		$env:path += ";$pathToAdd"
 		[Environment]::SetEnvironmentVariable("PATH", $env:path, "MACHINE")
 	}
 	$obj | Add-Member -Type ScriptMethod -Name _execute -Value { param ($fileName, $arguments, $successExitCodes, $beforeStart)
 		$concatenatedArguments = ""
 		$arguments | % { $concatenatedArguments += "$_ " }
-		
-		Write-Host "Command: $fileName"
-		Write-Host "Arguments: $concatenatedArguments"
+		Write-Host "INFO: CmdLine.Execute FileName: $($fileName), Arguments: $($concatenatedArguments), SuccessExitCodes: $($successExitCodes)"
 
 		$process = New-Object Diagnostics.Process 
 		$setup = $process.StartInfo
@@ -46,8 +47,7 @@ function new_cmd_line ($isoDirectory, $installerDirectory) {
 			& $beforeStart $process
 		}
 	  
-		Write-Host "Working Directory"
-		Write-Host $setup.WorkingDirectory
+		Write-Host "INFO: --Working Directory. $($setup.WorkingDirectory)"
 
 		$exitCode = -1
 		if ($process.Start()) {
@@ -63,9 +63,11 @@ function new_cmd_line ($isoDirectory, $installerDirectory) {
 			$process.Close()
 		}
 		
-		if (!($successExitCodes -contains $exitCode)) { throw "CmdLine failed with exit code: $exitCode" }
+		if (!($successExitCodes -contains $exitCode)) {
+			throw "CmdLine failed with exit code: FileName: $($fileName), arguments: $($arguments), successExitCodes: $($successExitCodes), actualExitCode: $($exitCode)"
+		}
 
-		Write-Host "**** End Command Line ****"		
+		Write-Host "INFO: Done CmdLine.Execute FileName: $($fileName), Arguments: $($concatenatedArguments), SuccessExitCodes: $($successExitCodes)"
 	}
 	$obj | Add-Member -Type ScriptMethod Execute { param($fileName, $arguments, $successExitCodes)
 		$this._execute($fileName, $arguments, $successExitCodes, $null)
@@ -77,6 +79,7 @@ function new_impersonation_cmd_line ($user, $isoDirectory, $installerDirectory) 
 	$obj = new_cmd_line $isoDirectory $installerDirectory
 	$obj | Add-Member -Type NoteProperty User $user
 	$obj | Add-Member -Type ScriptMethod -Force Execute { param($fileName, $arguments, $successExitCodes, $userBeforeStart)
+		Write-Host "INFO: Executing cmdline with impersonation. User: $($this.User.Name), Password: $($this.User.Password.PlainText), Domain: $($this.User.NetBiosName)"
 		$this._execute($fileName, $arguments, $successExitCodes, { param($process)
 			if($userBeforeStart -ne $null) { & $userBeforeStart $process }
 			$setup = $process.StartInfo
