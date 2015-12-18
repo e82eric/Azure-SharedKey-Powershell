@@ -31,7 +31,20 @@ function create_storage_account { param($name, $dataCenter)
 			<AccountType>Standard_LRS</AccountType>
 		</CreateStorageServiceInput>"
 
-	$script:restClient.ExecuteOperation("POST", "services/storageservices", $storageAccountDef)
+	$result = $script:restClient.Request(@{
+		Verb = "POST";
+		Resource = "services/storageservices";
+		ThrowWebException = $false;
+		Content = $storageAccountDef;
+		OnResponse = $parse_xml;
+	})
+	if($false -eq $result.SuccessStatusCode) {
+		if(409 -ne $result.StatusCode) {
+			throw
+		}
+	} else {
+		$script:restClient.ExecuteOperation("POST", "services/storageservices", $storageAccountDef)
+	}
 }
 
 function delete_storage_account { param($name)
@@ -221,6 +234,19 @@ function copy_blob { param($account, $container, $fileName, $newName, $blobClien
 		Headers = @(@{ name = "x-ms-copy-source"; value = "https://$($account).blob.core.windows.net/$container/$fileName" });
 		Content = (New-Object byte[] 0)
 	})
+}
+
+function catch_404 {
+	$result = $blobClient.Request(@{
+		Verb = "GET";
+		Resource = "random1";
+		ThrowWebException = $false;
+		ProcessResponse = $parse_text;
+	})
+	if(404 -ne $result.StatusCode) {
+		throw "Expected 404"
+	}
+	Write-Host $result
 }
 
 create_storage_account $storageAccountName $dataCenter
