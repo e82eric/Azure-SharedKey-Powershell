@@ -20,7 +20,7 @@ if($null -eq $subscriptionAadTenantId) {
 	throw "Error: Unable to find aad tenant id for subscription: $($subscriptionId)"
 }
 
-$script:restClient = new_resource_manager_rest_client $subscriptionId $subscriptionAadTenantId
+$script:restClient = new_resource_manager_rest_client $subscriptionId $subscriptionAadTenantId $loginHint
 $script:serializer = New-Object Web.Script.Serialization.JavaScriptSerializer
 $script:apiVersion = $apiVersion
 
