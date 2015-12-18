@@ -50,7 +50,8 @@ function get_acs_key { param($name)
 	$result = $script:restClient.Request(@{
 		Verb = "GET";
 		Resource = "services/servicebus/namespaces/$name/connectiondetails";
-		OnResponse = $parse_xml 
+		OnResponse = $parse_xml;
+		Version = "2013-08-01";
 	})
 	$connectionString = ($result.ArrayOfConnectionDetail.ConnectionDetail | ? { $_.KeyName -eq "ACSOwnerKey" }).ConnectionString
 	$keyPart = $connectionString.split(';')[2]
