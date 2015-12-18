@@ -13,7 +13,7 @@
                         <CreatePartition wcm:action="add">
                             <Order>1</Order>
                             <Type>Primary</Type>
-                            <Size>40000</Size>
+                            <Size>60000</Size>
                         </CreatePartition>
                     </CreatePartitions>
 
@@ -37,7 +37,8 @@
 
             <UserData>
               <!-- Product Key from http://technet.microsoft.com/en-us/library/ff793406.aspx -->
-                <ProductKey>#{ProductKey}
+                <ProductKey>
+		    <Key>#{ProductKey}</Key>
                     <WillShowUI>Never</WillShowUI>
                 </ProductKey>
 
@@ -57,7 +58,7 @@
                     <InstallFrom>
                         <MetaData wcm:action="add">
                             <Key>/IMAGE/NAME</Key>
-                            <Value>Windows Server 2008 R2 SERVERENTERPRISE</Value>
+                            <Value>Windows Server 2012 R2 SERVERDATACENTER</Value>
                         </MetaData>
                     </InstallFrom>
                 </OSImage>
@@ -107,25 +108,19 @@
                     <Order>1</Order>
                     <RequiresUserInput>true</RequiresUserInput>
                 </SynchronousCommand>
-				<SynchronousCommand wcm:action="add">
+		<SynchronousCommand wcm:action="add">
                     <CommandLine>cmd.exe /c winrm set winrm/config/service/auth @{CredSSP="true"}</CommandLine>
                     <Description>Win RM auth Credssp</Description>
                     <Order>2</Order>
                     <RequiresUserInput>true</RequiresUserInput>
                 </SynchronousCommand>
-				<SynchronousCommand wcm:action="add">
-                    <CommandLine>cmd.exe /c netsh interface ip set address "Local Area Connection" Static #{IpAddress} 255.255.255.0</CommandLine>
+		<SynchronousCommand wcm:action="add">
+                    <CommandLine>C:\Windows\System32\WindowsPowershell\v1.0\powershell.exe -ExecutionPolicy "RemoteSigned" -Command "A:\set_host_only_static_ip.ps1 '#{HostOnlyMacAddress}' '#{IpAddress}' '#{HostIpAddress}'"</CommandLine>
                     <Description>Set static ip</Description>
                     <Order>3</Order>
                     <RequiresUserInput>true</RequiresUserInput>
                 </SynchronousCommand>
-				<SynchronousCommand wcm:action="add">
-                    <CommandLine>cmd.exe /c netsh interface ip add dns "Local Area Connection" #{HostIpAddress}</CommandLine>
-                    <Description>Set host ip as dns</Description>
-                    <Order>4</Order>
-                    <RequiresUserInput>true</RequiresUserInput>
-                </SynchronousCommand>
-				<SynchronousCommand wcm:action="add">
+		<SynchronousCommand wcm:action="add">
                     <CommandLine>cmd.exe /c net stop winrm </CommandLine>
                     <Description>Stop Win RM Service </Description>
                     <Order>5</Order>
