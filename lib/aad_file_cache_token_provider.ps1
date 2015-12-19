@@ -23,9 +23,17 @@ function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantI
 		if ((Test-Path $this.FilePath)) {
 			Write-Debug "--cache file found. $($this.FilePath)"
 			$tokens = $this._getTokensFromFile()
+			Write-Debug "found $($tokens.Length) tokens"
 			$trimmedTokens = $this._trimExpired($tokens)
+			Write-Debug "found $($trimmedTokens.Length) non expired tokens"
 			Write-Debug "checking for cached token $($this.CacheIdentifier)"
-			$savedToken = $trimmedTokens | ? { $this.CacheIdentifier -eq $this.CacheIdentifier -and $_.Resource -eq $this.Resource -and $_.AadTenantId -eq $this.AadTenantId } | Select -First 1
+			$savedToken = $null
+			if(0 -ne $trimmedTokens) {
+				$savedToken = $trimmedTokens | ? {
+					$result = $this._checkIfTokenMatches($_)
+					$result
+				} | Select -First 1
+			}
 			if($null -ne $savedToken) {
 				Write-Debug "--found cached token $($this.CacheIdentifier)"
 				$adalToken = $this.TokenProvider.GetTokenByRefreshToken($savedToken.RefreshToken)
@@ -42,6 +50,19 @@ function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantI
 		}
 		$result
 	}
+	$obj | Add-Member -Type ScriptMethod _checkIfTokenMatches { param($token)
+		$identifierMatches = $token.CacheIdentifier -eq $this.CacheIdentifier
+		$resourceMatches = $token.Resource -eq $this.Resource
+		$tenantIdMatches = $token.AadTenantId -eq $this.AadTenantId
+		$everythingMatches = $identifierMatches -and $resourceMatches -and $tenantIdMatches
+		Write-Debug "--Criteria: CacheIdentifier: $($this.CacheIdentifier), Resource: $($this.Resource), AadTenantId: $($this.AadTenantId)" 
+		$this._printToken($_)
+		Write-Debug "--Result: CacheIdentifierMatches: $($identifierMatches), ResourceMatches: $($resourceMatches), AadTenantIdMatches: $($tenantIdMatches), EverythingMatches: $($everythingMatches)"
+		$everythingMatches
+	}
+	$obj | Add-Member -Type ScriptMethod _printToken { param($token)
+		Write-Debug "--Token: Resource: $($token.Resource), AadTenantId: $($token.AadTenantId), ExpiresOn: $($token.ExpiresOn), CacheIdentifier: $($token.CacheIdentifier)"
+	}
 	$obj | Add-Member -Type ScriptMethod _mapAdalToken { param($adalToken)
 		@{
 			Resource = $this.Resource;
@@ -55,17 +76,19 @@ function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantI
 	$obj | Add-Member -Type ScriptMethod _saveTokens { param($newAdalToken, $tokens)
 		$tokensToSave = New-Object Collections.ArrayList
 		$newToken = $this._mapAdalToken($newAdalToken)
-		Write-Debug "Checking if tokens should be saved."
+		Write-Debug "filtering tokens to save to not include a previously saved token for this resource."
 		$tokens | % {
-			Write-Debug "--Token: Resource: $($_.Resource), AadTenantId: $($_.AadTenantId), ExpiresOn: $($_.ExpiresOn), CacheIdentifier: $($_.CacheIdentifier)"
-			Write-Debug "--Criteria: $($_.CacheIdentifier) -ne $($this.CacheIdentifier) -and $($_.Resource) -ne $($this.Resource) -and $($_.AadTenantId) -ne $($this.AadTenantId)"
-			$shouldAdd = $_.CacheIdentifier -ne $this.CacheIdentifier -and $_.Resource -ne $this.Resource -and $_.AadTenantId -ne $this.AadTenantId
-			Write-Debug "--Result: $($shouldAdd)"
+			$shouldAdd = !$this._checkIfTokenMatches($_)
+			Write-Debug "--token should be saved: $($shouldAdd)"
 			if($true -eq $shouldAdd) {
 				$tokensToSave.Add($_) | Out-Null
 			}
 		 }
 		$tokensToSave.Add($newToken) | Out-Null
+		Write-Debug "tokens to be saved"
+		$tokensToSave | % {
+			$this._printToken($_)
+		}
 
 		$tokensJson = $this.Serializer.Serialize($tokensToSave)
 		$tokensJsonBytes = $this.Encoder.GetBytes($tokensJson)
@@ -86,13 +109,13 @@ function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantI
 		$result = $this.Serializer.DeserializeObject($tokensJson)
 		Write-Debug "Tokens retrived from file"
 		$result | % {
-			Write-Debug "--Token: Resource: $($_.Resource), AadTenantId: $($_.AadTenantId), ExpiresOn: $($_.ExpiresOn), CacheIdentifier: $($_.CacheIdentifier)"
+			$this._printToken($_)
 		}
 		$result
 	}
 	$obj | Add-Member -Type ScriptMethod _trimExpired { param($tokens)
 		$result = $tokens | ? {
-			Write-Debug "Checking if Token is expired"
+			Write-Debug "Checking if Token is not expired"
 			Write-Debug "--Token: Resource: $($_.Resource), AadTenantId: $($_.AadTenantId), ExpiresOn: $($_.ExpiresOn), CacheIdentifier: $($_.CacheIdentifier)"
 			Write-Debug "--Criteria: $($_.ExpiresOn) -gt $([DateTime]::UtcNow)"
 			$expired = $_.ExpiresOn -gt [DateTime]::UtcNow
