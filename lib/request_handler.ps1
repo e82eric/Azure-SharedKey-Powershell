@@ -34,14 +34,14 @@ function new_request_handler { param($requestBuilder, $retryHandler)
 				$state.SuccessStatusCode = $true
 				$state.StatusCode = $response.StatusCode
 			} catch {
-				if($false -eq $options.ThrowWebException) {
-					Write-Verbose "ThrowWebException flag set to false. Not throwing exception."
+				if($true -eq $options.IncludeHttpDetails) {
+					Write-Verbose "IncludeHttpDetails flag set to true. Not throwing exception."
 					$e = $this._getWebException($_.Exception)
 					$state.SuccessStatusCode = $false
 					$state.StatusCode = $e.Response.StatusCode
 					$response = $e.Response
 				} else {
-					Write-Verbose "ThrowWebException flag set to true. Throwing exception."
+					Write-Verbose "IncludeHttpDetails flag set to true. Throwing exception."
 					throw $_.Exception
 				}
 			}
@@ -49,9 +49,11 @@ function new_request_handler { param($requestBuilder, $retryHandler)
 				$state.Result = & $options.ProcessResponse $response
 			}
 		})
-		if($false -eq $state.SuccessStatusCode) {
+		if($true -eq $options.IncludeHttpDetails) {
+			Write-Verbose "IncludeHttpDetails flag set to true returning full details"
 			$state
 		} else {
+			Write-Verbose "IncludeHttpDetails flag set to false returning only body"
 			$state.Result
 		}
 	}

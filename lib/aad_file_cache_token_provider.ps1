@@ -65,12 +65,12 @@ function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantI
 	}
 	$obj | Add-Member -Type ScriptMethod _mapAdalToken { param($adalToken)
 		@{
-			Resource = $this.Resource;
-			AadTenantId = $this.AadTenantId;
-			RefreshToken = $adalToken.RefreshToken;
-			ExpiresOn = $adalToken.ExpiresOn;
-			AccessToken = $adalToken.AccessToken;
-			CacheIdentifier = $this.CacheIdentifier;
+			Resource = "$($this.Resource)";
+			AadTenantId = "$($this.AadTenantId)";
+			RefreshToken = "$($adalToken.RefreshToken)";
+			ExpiresOn = "$($adalToken.ExpiresOn)";
+			AccessToken = "$($adalToken.AccessToken)";
+			CacheIdentifier = "$($this.CacheIdentifier)";
 		}
 	}
 	$obj | Add-Member -Type ScriptMethod _saveTokens { param($newAdalToken, $tokens)
