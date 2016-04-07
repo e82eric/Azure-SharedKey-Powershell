@@ -1,7 +1,6 @@
 param($adalLibDir = (Resolve-Path "..\libs").Path)
 
 [Reflection.Assembly]::LoadFrom("$adalLibDir\Microsoft.IdentityModel.Clients.ActiveDirectory.dll") | out-null
-#[Reflection.Assembly]::LoadFrom("$adalLibDir\Microsoft.IdentityModel.Clients.ActiveDirectory.WindowsForms.dll") | out-null
 
 function new_aad_token_provider { param($resourceAppIdUri, $aadTenant, $subscriptionId)
 	$obj = new_aad_token_provider_base $resourceAppIdUri $aadTenant $subscriptionId

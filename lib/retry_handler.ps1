@@ -1,16 +1,16 @@
-function new_retry_handler { param($exceptionResponseHandler)
-	$obj	= New-Object PSObject -Property @{ ExceptionResponseHandler = $exceptionResponseHandler }
+function new_retry_handler { param($exceptionResponseHandler, $announcer)
+	$obj	= New-Object PSObject -Property @{ ExceptionResponseHandler = $exceptionResponseHandler; Announcer = $announcer }
 	$obj | Add-Member -Type ScriptMethod _getWebException { param($exception)
 		$result = $exception
 		$statusName = $null
 		while($statusName -ne "WebExceptionStatus") {
 			if($null -ne $result.Status) {
 				$statusName = $result.Status.Name
-				Write-Verbose "Excpetion Status: $($result.Message), StatusCode: $($result.Response.StatusCode)"
+				$this.Announcer.Verbose("Excpetion Status: $($result.Message), StatusCode: $($result.Response.StatusCode)")
 				break
 			}
 			if($null -eq $result.InnerException) { 
-				Write-Warning "No web exception was found"
+				$this.Announcer.Warning("No web exception was found")
 				break
 			}
 			$result = $result.InnerException
@@ -19,7 +19,7 @@ function new_retry_handler { param($exceptionResponseHandler)
 	}
 	$obj | Add-Member -Type ScriptMethod _writeResponse { param($e)
 		if($null -ne $e.Response) {
-			& $this.ExceptionResponseHandler $e.Response
+			& $this.ExceptionResponseHandler $e.Response $this.Announcer
 		}
 	}
 	$obj | Add-Member -Type ScriptMethod execute { param ($retryCount, $retryAction)
@@ -32,7 +32,7 @@ function new_retry_handler { param($exceptionResponseHandler)
 				& $retryAction
 				$running = $false	
 			} catch {
-				Write-Verbose "Exception caught in rest request"
+				$this.Announcer.Verbose("Exception caught in rest request")
 				$e = $this._getWebException($_.Exception)
 				$this._writeResponse($e)
 				if($e.Status -eq [Net.WebExceptionStatus]::Timeout) {
@@ -40,7 +40,7 @@ function new_retry_handler { param($exceptionResponseHandler)
 						throw $e
 					}
 					$numberOfRetries++
-					Write-Host "INFO: Retrying request due to timeout. Attempt $numberOfRetries of $retryCount"
+					$this.Announcer.Info("Retrying request due to timeout. Attempt $($numberOfRetries) of $($retryCount)")
 				}
 				else	{ 
 					throw $e

@@ -1,7 +1,7 @@
 $ErrorActionPreference = "stop"
 
-function new_request_builder {
-	$obj = New-Object PSObject
+function new_request_builder { param($announcer)
+	$obj = New-Object PSObject @{ Announcer = $announcer }
 	$obj | Add-Member -Type ScriptMethod _use_disposeable { param($disposeable, $useFunc)
 		try {
 			& $useFunc
@@ -53,7 +53,7 @@ function new_request_builder {
 		
 		if($null -ne $content) {
 			if($content -is [string]) {
-				Write-Verbose "Executing rest api request. Url: $($options.Url), Verb: $($options.Verb), Content: $($content)"
+				$this.Announcer.Verbose("Executing rest api request. Url: $($options.Url), Verb: $($options.Verb), Content: $($content)")
 				$this._use_disposeable(($requestStream = $request.GetRequestStream()), {
 					$this._use_disposeable(($streamWriter = New-Object IO.StreamWriter($requestStream)), {
 						$streamWriter.Write($content)
@@ -63,7 +63,7 @@ function new_request_builder {
 					$requestStream.Close()
 				})
 			} else {
-				Write-Verbose "Executing rest api request. Url: $($options.Url), Verb: $($options.Verb), Content: binary"
+				$this.Announcer.Verbose("Executing rest api request. Url: $($options.Url), Verb: $($options.Verb), Content: binary")
 				$request.ContentLength = $options.Content.Length
 				$this._use_disposeable(($requestStream = $request.GetRequestStream()), {
 					$requestStream.Write($options.Content, 0, $options.Content.Length)
@@ -71,7 +71,7 @@ function new_request_builder {
 				})
 			}
 		} else {
-			Write-Verbose "Executing rest api request. Url: $($options.Url), Verb: $($options.Verb)"
+			$this.Announcer.Verbose("Executing rest api request. Url: $($options.Url), Verb: $($options.Verb)")
 		}
 		$request
 	}

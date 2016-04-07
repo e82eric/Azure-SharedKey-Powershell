@@ -6,11 +6,14 @@ $ErrorActionPreference = "stop"
 function new_service_bus_shared_access_signature_provider { param(
 	$namespace,
 	$key,
-	$keyName)
+	$keyName,
+	$announcer
+)
 	$obj = New-Object PSObject -Property @{
 		Namespace = $namespace;
-		SignatureHasher = (new_utf8_signature_hash_parser $key);
+		SignatureHasher = (new_utf8_signature_hash_parser $key $this.Announcer);
 		KeyName = $keyName;
+		Announcer = $announcer;
 	}
 	$obj | Add-Member -Type ScriptMethod _get_expiration {
 		$origin = New-Object DateTime(1970, 1, 1, 0, 0, 0, 0)
@@ -25,14 +28,14 @@ function new_service_bus_shared_access_signature_provider { param(
 		$encodedUri = [Web.HttpUtility]::UrlEncode($uri.ToLowerInVariant())
 		$expiration = $this._get_expiration()
 		#$expiration = "1435143079"
-		Write-Verbose "Shared access expiration: $($expiration)"
+		$this.Announcer.Verbose("Shared access expiration: $($expiration)")
 		$stringToSign = "$($encodedUri)`n$($expiration)"
-		Write-Verbose "Shared access signature string to sign: $($stringToSign)"
+		$this.Announcer.Verbose("Shared access signature string to sign: $($stringToSign)")
 		$hash = $this.SignatureHasher.execute($stringToSign)
-		Write-Verbose "Shared access signature hash: $($hash)"
+		$this.Announcer.Verbose("Shared access signature hash: $($hash)")
 		$encodedHash = [Web.HttpUtility]::UrlEncode($hash) 
 		$result = "SharedAccessSignature sr=$($encodedUri)&sig=$($encodedHash)&se=$($expiration)&skn=$($this.KeyName)"
-		Write-Verbose "Returning shared access signature: $($result)"
+		$this.Announcer.Verbose("Returning shared access signature: $($result)")
 		$result
 	}
 	$obj

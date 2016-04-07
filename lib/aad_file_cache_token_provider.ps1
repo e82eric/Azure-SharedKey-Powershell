@@ -2,7 +2,7 @@ $ErrorActionPreference = "stop"
 [Reflection.Assembly]::LoadWithPartialName("System.Web.Extensions") | Out-Null
 [Reflection.Assembly]::LoadWithPartialName("System.Security") | Out-Null
 
-function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantId, $resourceAppIdUri, $tokenProvider, $filePath, $loginHint)
+function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantId, $resourceAppIdUri, $tokenProvider, $filePath, $loginHint, $announcer)
 	$obj = New-Object PSObject -Property @{
 		FilePath = $filePath;
 		Serializer = (New-Object Web.Script.Serialization.JavaScriptSerializer);
@@ -12,6 +12,7 @@ function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantI
 		TokenProvider = $tokenProvider;
 		CacheIdentifier = $cacheIdentifier;
 		LoginHint = $loginHint;
+		Announcer = $announcer;
 	}
 	$obj | Add-Member -Type ScriptMethod execute { param($options)
 		$token = $this._getToken()
@@ -19,14 +20,14 @@ function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantI
 	}
 	$obj | Add-Member -Type ScriptMethod _getToken {
 		$result = $null
-		Write-Debug "checking for cache file $($this.FilePath)"
+		$this.Announcer.Debug("checking for cache file $($this.FilePath)")
 		if ((Test-Path $this.FilePath)) {
-			Write-Debug "--cache file found. $($this.FilePath)"
+			$this.Announcer.Debug("--cache file found. $($this.FilePath)")
 			$tokens = $this._getTokensFromFile()
-			Write-Debug "found $($tokens.Length) tokens"
+			$this.Announcer.Debug("found $($tokens.Length) tokens")
 			$trimmedTokens = $this._trimExpired($tokens)
-			Write-Debug "found $($trimmedTokens.Length) non expired tokens"
-			Write-Debug "checking for cached token $($this.CacheIdentifier)"
+			$this.Announcer.Debug("found $($trimmedTokens.Length) non expired tokens")
+			$this.Announcer.Debug("checking for cached token $($this.CacheIdentifier)")
 			$savedToken = $null
 			if(0 -ne $trimmedTokens) {
 				$savedToken = $trimmedTokens | ? {
@@ -35,16 +36,16 @@ function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantI
 				} | Select -First 1
 			}
 			if($null -ne $savedToken) {
-				Write-Debug "--found cached token $($this.CacheIdentifier)"
+				$this.Announcer.Debug("--found cached token $($this.CacheIdentifier)")
 				$adalToken = $this.TokenProvider.GetTokenByRefreshToken($savedToken.RefreshToken)
 				$result = $this._saveTokens($adalToken, $trimmedTokens)
 			} else {
-				Write-Debug "--could not find cached token $($this.CacheIdentifier)"
+				$this.Announcer.Debug("--could not find cached token $($this.CacheIdentifier)")
 				$adalToken = $this.TokenProvider.GetToken()
 				$result = $this._saveTokens($adalToken, $trimmedTokens)
 			}
 		} else {
-			Write-Debug "--could not find a cache file $($this.FilePath)"
+			$this.Announcer.Debug("--could not find a cache file $($this.FilePath)")
 			$adalToken = $this.TokenProvider.GetToken()
 			$result = $this._saveTokens($adalToken, @())
 		}
@@ -55,13 +56,13 @@ function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantI
 		$resourceMatches = $token.Resource -eq $this.Resource
 		$tenantIdMatches = $token.AadTenantId -eq $this.AadTenantId
 		$everythingMatches = $identifierMatches -and $resourceMatches -and $tenantIdMatches
-		Write-Debug "--Criteria: CacheIdentifier: $($this.CacheIdentifier), Resource: $($this.Resource), AadTenantId: $($this.AadTenantId)" 
+		$this.Announcer.Debug("--Criteria: CacheIdentifier: $($this.CacheIdentifier), Resource: $($this.Resource), AadTenantId: $($this.AadTenantId)")
 		$this._printToken($_)
-		Write-Debug "--Result: CacheIdentifierMatches: $($identifierMatches), ResourceMatches: $($resourceMatches), AadTenantIdMatches: $($tenantIdMatches), EverythingMatches: $($everythingMatches)"
+		$this.Announcer.Debug("--Result: CacheIdentifierMatches: $($identifierMatches), ResourceMatches: $($resourceMatches), AadTenantIdMatches: $($tenantIdMatches), EverythingMatches: $($everythingMatches)")
 		$everythingMatches
 	}
 	$obj | Add-Member -Type ScriptMethod _printToken { param($token)
-		Write-Debug "--Token: Resource: $($token.Resource), AadTenantId: $($token.AadTenantId), ExpiresOn: $($token.ExpiresOn), CacheIdentifier: $($token.CacheIdentifier)"
+		$this.Announcer.Debug("--Token: Resource: $($token.Resource), AadTenantId: $($token.AadTenantId), ExpiresOn: $($token.ExpiresOn), CacheIdentifier: $($token.CacheIdentifier)")
 	}
 	$obj | Add-Member -Type ScriptMethod _mapAdalToken { param($adalToken)
 		@{
@@ -76,16 +77,16 @@ function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantI
 	$obj | Add-Member -Type ScriptMethod _saveTokens { param($newAdalToken, $tokens)
 		$tokensToSave = New-Object Collections.ArrayList
 		$newToken = $this._mapAdalToken($newAdalToken)
-		Write-Debug "filtering tokens to save to not include a previously saved token for this resource."
+		$this.Announcer.Debug("filtering tokens to save to not include a previously saved token for this resource.")
 		$tokens | % {
 			$shouldAdd = !$this._checkIfTokenMatches($_)
-			Write-Debug "--token should be saved: $($shouldAdd)"
+			$this.Announcer.Debug("--token should be saved: $($shouldAdd)")
 			if($true -eq $shouldAdd) {
 				$tokensToSave.Add($_) | Out-Null
 			}
 		 }
 		$tokensToSave.Add($newToken) | Out-Null
-		Write-Debug "tokens to be saved"
+		$this.Announcer.Debug("tokens to be saved")
 		$tokensToSave | % {
 			$this._printToken($_)
 		}
@@ -107,7 +108,7 @@ function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantI
 			[Security.Cryptography.DataProtectionScope]::CurrentUser)	
 		$tokensJson = $this.Encoder.GetString($tokensJsonBytes)
 		$result = $this.Serializer.DeserializeObject($tokensJson)
-		Write-Debug "Tokens retrived from file"
+		$this.Announcer.Debug("Tokens retrived from file")
 		$result | % {
 			$this._printToken($_)
 		}
@@ -115,11 +116,11 @@ function new_aad_file_cache_token_provider { param($cacheIdentifier, $aadTenantI
 	}
 	$obj | Add-Member -Type ScriptMethod _trimExpired { param($tokens)
 		$result = $tokens | ? {
-			Write-Debug "Checking if Token is not expired"
-			Write-Debug "--Token: Resource: $($_.Resource), AadTenantId: $($_.AadTenantId), ExpiresOn: $($_.ExpiresOn), CacheIdentifier: $($_.CacheIdentifier)"
-			Write-Debug "--Criteria: $($_.ExpiresOn) -gt $([DateTime]::UtcNow)"
+			$this.Announcer.Debug("Checking if Token is not expired")
+			$this.Announcer.Debug("--Token: Resource: $($_.Resource), AadTenantId: $($_.AadTenantId), ExpiresOn: $($_.ExpiresOn), CacheIdentifier: $($_.CacheIdentifier)")
+			$this.Announcer.Debug("--Criteria: $($_.ExpiresOn) -gt $([DateTime]::UtcNow)")
 			$expired = $_.ExpiresOn -gt [DateTime]::UtcNow
-			Write-Debug "--Result: $($expired)"
+			$this.Announcer.Debug("--Result: $($expired)")
 			$expired
 		}
 		$result

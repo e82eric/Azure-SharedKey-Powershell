@@ -1,9 +1,10 @@
 $ErrorActionPreference = "stop"
 
-function new_request_handler { param($requestBuilder, $retryHandler)
+function new_request_handler { param($requestBuilder, $retryHandler, $announcer)
 	$obj = New-Object PSObject -Property @{ 
 		RequestBuilder = $requestBuilder;
 		RetryHandler = $retryHandler;
+		Announcer = $announcer;
 	}
 	$obj | Add-Member -Type ScriptMethod _getWebException { param($exception)
 		$result = $exception
@@ -11,11 +12,11 @@ function new_request_handler { param($requestBuilder, $retryHandler)
 		while($statusName -ne "WebExceptionStatus") {
 			if($null -ne $result.Status) {
 				$statusName = $result.Status.GetType().Name
-				Write-Verbose "Excpetion Status: $($result.Message), StatusCode: $($result.Response.StatusCode)"
+				$this.Announcer.Verbose("Excpetion Status: $($result.Message), StatusCode: $($result.Response.StatusCode)")
 				break
 			}
 			if($null -eq $result.InnerException) { 
-				Write-Warning "No web exception was found"
+				$this.Announcer.Warning("No web exception was found")
 				break
 			}
 			$result = $result.InnerException
@@ -35,25 +36,25 @@ function new_request_handler { param($requestBuilder, $retryHandler)
 				$state.StatusCode = $response.StatusCode
 			} catch {
 				if($true -eq $options.IncludeHttpDetails) {
-					Write-Verbose "IncludeHttpDetails flag set to true. Not throwing exception."
+					$this.Announcer.Verbose("IncludeHttpDetails flag set to true. Not throwing exception.")
 					$e = $this._getWebException($_.Exception)
 					$state.SuccessStatusCode = $false
 					$state.StatusCode = $e.Response.StatusCode
 					$response = $e.Response
 				} else {
-					Write-Verbose "IncludeHttpDetails flag set to true. Throwing exception."
+					$this.Announcer.Verbose("IncludeHttpDetails flag set to true. Throwing exception.")
 					throw $_.Exception
 				}
 			}
 			if($null -ne $options.ProcessResponse) {
-				$state.Result = & $options.ProcessResponse $response
+				$state.Result = & $options.ProcessResponse $response $this.Announcer
 			}
 		})
 		if($true -eq $options.IncludeHttpDetails) {
-			Write-Verbose "IncludeHttpDetails flag set to true returning full details"
+			$this.Announcer.Verbose("IncludeHttpDetails flag set to true returning full details")
 			$state
 		} else {
-			Write-Verbose "IncludeHttpDetails flag set to false returning only body"
+			$this.Announcer.Verbose("IncludeHttpDetails flag set to false returning only body")
 			$state.Result
 		}
 	}

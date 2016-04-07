@@ -6,7 +6,9 @@ function new_blob_authorization_header_patcher { param(
 	$canonicalizedHeadersParser,
 	$signatureParser,
 	$signatureHashParser,
-	$authorizationHeaderParser)
+	$authorizationHeaderParser,
+	$announcer
+)
 	$obj = New-Object PSObject -Property @{
 		UriParser = $uriParser;
 		CanonicalizedResourcesParser = $canonicalizedResourcesParser;
@@ -14,13 +16,14 @@ function new_blob_authorization_header_patcher { param(
 		SignatureParser = $signatureParser;
 		SignatureHashParser = $signatureHashParser;
 		AuthorizationHeaderParser = $authorizationHeaderParser;
+		Announcer = $announcer;
 	}
 	$obj | Add-Member -Type ScriptMethod execute { param($options)
 		$uriElements = $this.UriParser.execute($options.Url)
 		$canonicalizedResources = $this.CanonicalizedResourcesParser.execute($uriElements.Operations, $uriElements.Resource)
 		$canonicalizedHeaders = $this.CanonicalizedHeadersParser.execute($options.Headers)
 		$signature = $this.SignatureParser.execute($options.Verb, $options.Content, $options.ContentHash, $options.ContentType, $canonicalizedHeaders, $canonicalizedResources)
-		Write-Verbose "Storage string to sign: $($signature)"
+		$this.Announcer.Verbose("Storage string to sign: $($signature)")
 		$signatureHash = $this.SignatureHashParser.execute($signature)
 		$options.AuthorizationHeader = $this.AuthorizationHeaderParser.execute($signatureHash)
 	}

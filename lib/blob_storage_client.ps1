@@ -1,23 +1,27 @@
-param($libDir = (Resolve-Path .\).Path)
+param(
+	$libDir = (Resolve-Path .\).Path,
+	$utilsDir = (Resolve-Path ..\utils).Path
+)
 $ErrorActionPreference = "stop"
 
-. "$libDir\config.ps1"
-. "$libDir\uri_parser.ps1"
-. "$libDir\ms_headers_parser.ps1"
-. "$libDir\blob_canonicalized_resources_parser.ps1"
-. "$libDir\canonicalized_headers_parser.ps1"
-. "$libDir\blob_signature_parser.ps1"
-. "$libDir\signature_hash_parser.ps1"
-. "$libDir\request_builder.ps1"
-. "$libDir\request_handler.ps1"
-. "$libDir\options_patcher.ps1"
-. "$libDir\simple_options_patcher.ps1"
-. "$libDir\resource_manager_options_patcher.ps1"
-. "$libDir\response_handlers.ps1"
-. "$libDir\authorization_header_parser.ps1"
-. "$libDir\rest_client.ps1"
-. "$libDir\retry_handler.ps1"
-. "$libDir\blob_authorization_header_patcher.ps1"
+. "$($libDir)\config.ps1"
+. "$($libDir)\uri_parser.ps1"
+. "$($libDir)\ms_headers_parser.ps1"
+. "$($libDir)\blob_canonicalized_resources_parser.ps1"
+. "$($libDir)\canonicalized_headers_parser.ps1"
+. "$($libDir)\blob_signature_parser.ps1"
+. "$($libDir)\signature_hash_parser.ps1"
+. "$($libDir)\request_builder.ps1"
+. "$($libDir)\request_handler.ps1"
+. "$($libDir)\options_patcher.ps1"
+. "$($libDir)\simple_options_patcher.ps1"
+. "$($libDir)\resource_manager_options_patcher.ps1"
+. "$($libDir)\response_handlers.ps1"
+. "$($libDir)\authorization_header_parser.ps1"
+. "$($libDir)\rest_client.ps1"
+. "$($libDir)\retry_handler.ps1"
+. "$($libDir)\blob_authorization_header_patcher.ps1"
+. "$($utilsDir)\announcer.ps1"
 
 function new_blob_storage_client {
 	param(
@@ -27,7 +31,8 @@ function new_blob_storage_client {
 		$defaultScheme = $(__.azure.rest.get_config "scheme"),
 		$defaultRetryCount = $(__.azure.rest.get_config "retry_count"),
 		$defaultContentType = "application/xml",
-		$defaultTimeout = $(__.azure.rest.get_config "timeout")
+		$defaultTimeout = $(__.azure.rest.get_config "timeout"),
+		$announcer = (new_announcer)
 	)
 	$clientType = "blob"
 
@@ -36,10 +41,11 @@ function new_blob_storage_client {
 		(new_blob_canonicalized_resources_parser $storageName) `
 		(new_canonicalized_headers_parser) `
 		(new_blob_signature_parser) `
-		(new_signature_hash_parser $storageKey) `
-		(new_authorization_header_parser $storageName)
+		(new_signature_hash_parser $storageKey $announcer) `
+		(new_authorization_header_parser $storageName) `
+		$announcer
 
-	$requestHandler = new_request_handler (new_request_builder $storageName) (new_retry_handler $write_response)
+	$requestHandler = new_request_handler (new_request_builder $announcer) (new_retry_handler $write_response $announcer) $announcer
 
 	$baseOptionsPatcher = new_simple_options_patcher `
 		$defaultRetryCount `

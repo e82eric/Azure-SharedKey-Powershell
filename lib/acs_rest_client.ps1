@@ -1,15 +1,19 @@
-param($restLibDir = (Resolve-Path .\).Path)
+param(
+	$restLibDir = (Resolve-Path .\).Path,
+	$utilsDir = (Resolve-Path ..\utils).Path
+)
 $ErrorActionPreference = "stop"
 
-. "$restLibDir\request_builder.ps1"
-. "$restLibDir\retry_handler.ps1"
-. "$restLibDir\request_handler.ps1"
-. "$restLibDir\response_handlers.ps1"
-. "$restLibDir\resource_manager_options_patcher.ps1"
-. "$restLibDir\rest_client.ps1"
-. "$restLibDir\simple_options_patcher.ps1"
-. "$restLibDir\config.ps1"
-. "$restLibDir\acs_client_token_patcher.ps1"
+. "$($restLibDir)\request_builder.ps1"
+. "$($restLibDir)\retry_handler.ps1"
+. "$($restLibDir)\request_handler.ps1"
+. "$($restLibDir)\response_handlers.ps1"
+. "$($restLibDir)\resource_manager_options_patcher.ps1"
+. "$($restLibDir)\rest_client.ps1"
+. "$($restLibDir)\simple_options_patcher.ps1"
+. "$($restLibDir)\config.ps1"
+. "$($restLibDir)\acs_client_token_patcher.ps1"
+. "$($utilsDir)\announcer.ps1"
 
 function new_acs_rest_client {
 	param(
@@ -18,10 +22,11 @@ function new_acs_rest_client {
 		$defaultScheme = $(__.azure.rest.get_config "scheme"),
 		$defaultRetryCount = $(__.azure.rest.get_config "retry_count"),
 		$defaultTimeout = $(__.azure.rest.get_config "timeout"),
-		$defaultContentType = $(__.azure.rest.get_config "acs_content_type")
+		$defaultContentType = $(__.azure.rest.get_config "acs_content_type"),
+		$announcer = (new_announcer)
 	)
 
-	$requestHandler = new_request_handler (new_request_builder) (new_retry_handler $write_response)
+	$requestHandler = new_request_handler (new_request_builder $announcer) (new_retry_handler $write_response $announcer) $announcer
 
 	$baseOptionsPatcher = new_simple_options_patcher `
 		$defaultRetryCount `

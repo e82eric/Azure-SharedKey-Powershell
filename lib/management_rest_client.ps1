@@ -1,27 +1,33 @@
-param($restLibDir = (Resolve-Path .\).Path, $adalLibDir = (Resolve-Path ..\libs).Path)
+param(
+	$restLibDir = (Resolve-Path .\).Path,
+	$adalLibDir = (Resolve-Path ..\libs).Path,
+	$utilLibDir = (Resolve-Path ..\util).Path
+)
 $ErrorActionPreference = "stop"
 
-. "$restLibDir\request_builder.ps1"
-. "$restLibDir\retry_handler.ps1"
-. "$restLibDir\request_handler.ps1"
-. "$restLibDir\response_handlers.ps1"
-. "$restLibDir\resource_manager_options_patcher.ps1"
-. "$restLibDir\management_options_patcher.ps1"
-. "$restLibDir\client_certificate_patcher.ps1"
-. "$restLibDir\rest_client.ps1"
-. "$restLibDir\simple_options_patcher.ps1"
-. "$restLibDir\config.ps1"
-. "$restLibDir\aad_token_provider.ps1" $adalLibDir
-. "$restLibDir\aad_file_cache_token_provider.ps1"
+. "$($restLibDir)\request_builder.ps1"
+. "$($restLibDir)\retry_handler.ps1"
+. "$($restLibDir)\request_handler.ps1"
+. "$($restLibDir)\response_handlers.ps1"
+. "$($restLibDir)\resource_manager_options_patcher.ps1"
+. "$($restLibDir)\management_options_patcher.ps1"
+. "$($restLibDir)\client_certificate_patcher.ps1"
+. "$($restLibDir)\rest_client.ps1"
+. "$($restLibDir)\simple_options_patcher.ps1"
+. "$($restLibDir)\config.ps1"
+. "$($restLibDir)\aad_token_provider.ps1" $adalLibDir
+. "$($restLibDir)\aad_file_cache_token_provider.ps1"
+. "$($utilLibDir)\announcer.ps1"
 
 function new_subscription_management_rest_client_with_adal { 
 	param(
 		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
 		[ValidateNotNullOrEmpty()]$aadTenantId=$(throw "aadTenantId is mandatory"),
 		$loginHint,
-		$fileTokenCachePath = "$env:userprofile\aad_tokens.dat"
+		$fileTokenCachePath = "$($env:userprofile)\aad_tokens.dat",
+		$announcer = (new_announcer)
 	)	
-	$cacheIdentifier = "$subscriptionId`_management_rest_client"
+	$cacheIdentifier = "$($subscriptionId)`_management_rest_client"
 	$aadResource = "https://management.core.windows.net/"
 	$aadTokenProvider = $null
 	if($null -eq $loginHint) {
@@ -29,21 +35,26 @@ function new_subscription_management_rest_client_with_adal {
 	} else {
 		$aadTokenProvider = new_aad_token_provider_with_login $aadResource $aadTenantId -LoginHint $loginHint
 	}
-	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath
-	new_subscription_management_rest_client $subscriptionId $authenticationPatcher
+	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath -Announcer $announcer
+	new_subscription_management_rest_client $subscriptionId $authenticationPatcher $announcer
 }
 
 function new_subscription_management_rest_client_with_cert_auth { 
 	param(
 		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
-		[ValidateNotNullOrEmpty()]$cert=$(throw "cert is mandatory")
+		[ValidateNotNullOrEmpty()]$cert=$(throw "cert is mandatory"),
+		$announcer
 	)	
 	$authenticationHandler = new_client_certificate_patcher $cert
-	new_subscription_management_rest_client $subscriptionId $authenticationHandler	
+	new_subscription_management_rest_client $subscriptionId $authenticationHandler $announcer
 }
 
-function new_management_rest_client_with_adal { param($loginHint, $fileTokenCachePath = "$env:userprofile\aad_tokens.dat")
-	$cacheIdentifier = "$subscriptionId`subscriptions_management_rest_client"
+function new_management_rest_client_with_adal { param(
+	$loginHint,
+	$fileTokenCachePath = "$($env:userprofile)\aad_tokens.dat",
+	$announcer = (new_announcer)
+)
+	$cacheIdentifier = "$($subscriptionId)`subscriptions_management_rest_client"
 	$aadResource = "https://management.core.windows.net/"
 	$aadTenantId = "common"
 
@@ -52,23 +63,25 @@ function new_management_rest_client_with_adal { param($loginHint, $fileTokenCach
 	} else {
 		$aadTokenProvider = new_aad_token_provider_with_login $aadResource $aadTenantId -LoginHint $loginHint
 	}
-	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath
-	new_management_rest_client $authenticationPatcher
+	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath -Announcer $announcer
+	new_management_rest_client $authenticationPatcher $announcer
 }
 
 function new_management_rest_client {
 	param(
-		[ValidateNotNullOrEmpty()]$authenticationHandler=$(throw "authenticationHandler is mandatory")
+		[ValidateNotNullOrEmpty()]$authenticationHandler=$(throw "authenticationHandler is mandatory"),
+		$announcer = (new_announcer)
 	)	
-	_new_management_rest_client "management.core.windows.net" $authenticationHandler
+	_new_management_rest_client "management.core.windows.net" $authenticationHandler -Announcer $announcer
 }
 
 function new_subscription_management_rest_client {
 	param(
 		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
-		[ValidateNotNullOrEmpty()]$authenticationHandler=$(throw "authenticationHandler is mandatory")
+		[ValidateNotNullOrEmpty()]$authenticationHandler=$(throw "authenticationHandler is mandatory"),
+		$announcer = (new_announcer)
 	)	
-	_new_management_rest_client "management.core.windows.net/$subscriptionId" $authenticationHandler
+	_new_management_rest_client "management.core.windows.net/$($subscriptionId)" $authenticationHandler -Announcer $announcer
 }
 
 function _new_management_rest_client {
@@ -79,10 +92,11 @@ function _new_management_rest_client {
 		$defaultScheme = $(__.azure.rest.get_config "scheme"),
 		$defaultRetryCount = $(__.azure.rest.get_config "retry_count"),
 		$defaultContentType = $(__.azure.rest.get_config "management_content_type"),
-		$defaultTimeout = $(__.azure.rest.get_config "timeout")
+		$defaultTimeout = $(__.azure.rest.get_config "timeout"),
+		$announcer = (new_announcer)
 	)
 
-	$requestHandler = new_request_handler (new_request_builder) (new_retry_handler $write_response)
+	$requestHandler = new_request_handler (new_request_builder $announcer) (new_retry_handler $write_response $announcer) $announcer
 
 	$baseOptionsPatcher = new_simple_options_patcher `
 		$defaultRetryCount `
@@ -100,6 +114,7 @@ function _new_management_rest_client {
 		$resourceManagerOptionsPatcher
 
 	$obj = new_rest_client $requestHandler $optionsPatcher $authenticationHandler
+	$obj | Add-Member -Type NoteProperty Announcer $announcer
 	$obj | Add-Member -Type ScriptMethod ExecuteOperation { param ($verb, $resource, $content)
 		$this.ExecuteOperation2(@{ Verb = $verb; Resource = $resource; Content = $content; })
 	}
@@ -112,9 +127,9 @@ function _new_management_rest_client {
 		while ($true) {
 			$operationResult = $this.Request(@{ Verb = "GET"; Resource = "operations/$($serviceResult.OperationId)"; OnResponse = $parse_xml; RetryCount = 3; })
 			$status = $operationResult.Operation.Status
-			Write-Host "INFO: Checking management api operation status. OperationId: $($serviceResult.OperationId), Status: $($status)"
+			$this.Announcer.Info("Checking management api operation status. OperationId: $($serviceResult.OperationId), Status: $($status)")
 			if($operationResult.Body -ne $null) {
-				Write-Host "INFO: Checking management api operation body. OperationId: $($serviceResult.OperationId), Body: $($operationResult.Body)"
+				$this.Announcer.Info("Checking management api operation body. OperationId: $($serviceResult.OperationId), Body: $($operationResult.Body)")
 			}
 			if($status -ne "InProgress") {
 				break
@@ -130,8 +145,8 @@ function _new_management_rest_client {
 	$obj
 }
 								
-$parse_operation_xml = { param ($response)
-	Write-Verbose "Process response as operation xml"
+$parse_operation_xml = { param ($response, $announcer)
+	$announcer.Verbose("Process response as operation xml")
 	$operationId = $response.Headers.Get("x-ms-request-id")
 	$stream = $response.GetResponseStream()
 	$reader = New-Object IO.StreamReader($stream)
@@ -143,7 +158,7 @@ $parse_operation_xml = { param ($response)
 }
 
 $parse_operation_id = { param ($response)
-	Write-Verbose "Process response as operation id"
+	$announcer.Verbose("Process response as operation id")
 	$operationId = $response.Headers.Get("x-ms-request-id")
 	$stream = $response.GetResponseStream()
 	$reader = New-Object IO.StreamReader($stream)
