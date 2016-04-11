@@ -1,9 +1,11 @@
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $sut = (Split-Path -Leaf $MyInvocation.MyCommand.Path).Replace(".tests.", ".")
 . "$here\..\lib\$sut"
+. "$here\fake_announcer.ps1"
+$script:fakeAnnouncer = new_fake_announcer
 
 Describe "get web exception" {
-	$handler = new_retry_handler { }
+	$handler = new_retry_handler { } $script:fakeAnnouncer
 	Context "when the first exception has a WexExceptionStatus" {
 		It "returns the first exception" {
 			$exception = @{ Status = [Net.WebExceptionStatus]::Timeout }
@@ -30,7 +32,7 @@ Describe "write response" {
 			$responseHandler = { param($response)
 				$script:numberOfResponseHandlerCalls++
 			}
-			$handler = new_retry_handler $responseHandler
+			$handler = new_retry_handler $responseHandler $script:fakeAnnouncer
 			$handler._writeResponse(@{ Respone = $null }) 
 
 			$script:numberOfResponseHandlerCalls | should be 0
@@ -44,7 +46,7 @@ Describe "write response" {
 				$response | should be $expected
 				$script:numberOfResponseHandlerCalls++
 			}
-			$handler = new_retry_handler $responseHandler
+			$handler = new_retry_handler $responseHandler $script:fakeAnnouncer
 			$handler._writeResponse(@{ Respone = $expected }) 
 
 			$script:numberOfResponseHandlerCalls | should be 0
@@ -52,7 +54,7 @@ Describe "write response" {
 	}
 }
 Describe "retry handler" {
-	$handler = new_retry_handler { }
+	$handler = new_retry_handler { } $script:fakeAnnouncer
 	$exceptionToThrow = New-Object Exception
 	$webException = New-Object Net.WebException("Timeout", [Net.WebExceptionStatus]::Timeout) 
 	Context "When a timeout exception is thrown" {
@@ -131,7 +133,7 @@ Describe "retry handler" {
 		}
 	}
 	Context "when a non timeout exception is thrown" {
-		$handler = new_retry_handler { }
+		$handler = new_retry_handler { } $script:fakeAnnouncer
 		$exceptionToThrow = New-Object Exception
 		$webException = New-Object Net.WebException("ConnectFailure", [Net.WebExceptionStatus]::ConnectFailure) 
 		$handler | Add-Member _getWebException -Type ScriptMethod { param($exceptionPassed)
