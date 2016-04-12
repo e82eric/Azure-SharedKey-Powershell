@@ -65,6 +65,27 @@ function new_aad_token_provider_with_login { param($resourceAppIdUri, $aadTenant
   $obj
 }
 
+function new_aad_token_provider_with_user_credential { param(
+	$resourceAppIdUri,
+	$aadTenant,
+	$subscriptionId,
+	$loginHint,
+	[Security.SecureString] $password
+)
+	$obj = new_aad_token_provider_base $resourceAppIdUri $aadTenant $subscriptionId
+	$obj | Add-Member -Type NoteProperty LoginHint $loginHint
+	$obj | Add-Member -Type NoteProperty Password $password
+  $obj | Add-Member -Type ScriptMethod GetToken {
+		$authContext = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext($this.Authority, $true)
+		$result = $authContext.AcquireToken(
+			$resourceAppIdURI,
+			$this.ClientId,
+			(New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.UserCredential($this.LoginHint,$this.Password)))
+		$result
+  }
+  $obj
+}
+
 function new_aad_token_provider_base { param($resourceAppIdUri, $aadTenant, $subscriptionId)
   $obj = New-Object PSObject -Property @{ 
     ClientId = "1950a258-227b-4e31-a9cf-717495945fc2";

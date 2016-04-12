@@ -39,6 +39,23 @@ function new_subscription_management_rest_client_with_adal {
 	new_subscription_management_rest_client $subscriptionId $authenticationPatcher $announcer
 }
 
+function new_subscription_management_rest_client_with_adal_user_credential { 
+	param(
+		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
+		[ValidateNotNullOrEmpty()]$aadTenantId=$(throw "aadTenantId is mandatory"),
+		[ValidateNotNullOrEmpty()]$loginHint=$(throw "loginHint is mandatory"),
+		[ValidateNotNullOrEmpty()][Security.SecureString] $password=$(throw "password is mandatory"),
+		$fileTokenCachePath = "$($env:userprofile)\aad_tokens.dat",
+		$announcer = (new_announcer)
+	)	
+	$cacheIdentifier = "$($subscriptionId)`_management_rest_client"
+	$aadResource = "https://management.core.windows.net/"
+	$aadTokenProvider = $null
+	$aadTokenProvider = new_aad_token_provider_with_login $aadResource $aadTenantId -LoginHint $loginHint -Password $password
+	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath -Announcer $announcer
+	new_subscription_management_rest_client $subscriptionId $authenticationPatcher $announcer
+}
+
 function new_subscription_management_rest_client_with_cert_auth { 
 	param(
 		[ValidateNotNullOrEmpty()]$subscriptionId=$(throw "subscriptionId is mandatory"),
@@ -63,6 +80,22 @@ function new_management_rest_client_with_adal { param(
 	} else {
 		$aadTokenProvider = new_aad_token_provider_with_login $aadResource $aadTenantId -LoginHint $loginHint
 	}
+	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath -Announcer $announcer
+	new_management_rest_client $authenticationPatcher $announcer
+}
+
+function new_management_rest_client_with_adal_user_credential { param(
+	[ValidateNotNullOrEmpty()] $loginHint = $(throw "loginHint is mandatory"),
+	[ValidateNotNullOrEmpty()][Security.SecureString] $password = $(throw "password is mandatory"),
+	$fileTokenCachePath = "$($env:userprofile)\aad_tokens.dat",
+	$announcer = (new_announcer)
+)
+	$cacheIdentifier = "$($subscriptionId)`subscriptions_management_rest_client"
+	$aadResource = "https://management.core.windows.net/"
+	$aadTenantId = "common"
+
+	$aadTokenProvider = new_aad_token_provider_with_user_credential $aadResource $aadTenantId -LoginHint $loginHint -Password $password
+
 	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $aadTenantId $aadResource $aadTokenProvider $fileTokenCachePath -Announcer $announcer
 	new_management_rest_client $authenticationPatcher $announcer
 }

@@ -60,3 +60,43 @@ function new_resource_manager_rest_client {
 	$obj = new_rest_client $requestHandler $optionsPatcher $authenticationPatcher
 	$obj
 }
+
+function new_resource_manager_rest_client_with_user_credential {
+	param(
+		[ValidateNotNullOrEmpty()]$subscriptionId = $(throw "subscriptionId is mandatory"),
+		[ValidateNotNullOrEmpty()]$adTenantId = $(throw "adTenantId is mandatory"),
+		[ValidateNotNullOrEmpty()]$loginHint = $(throw "loginHint is mandatory"),
+		[ValidateNotNullOrEmpty()][Security.SecureString] $password = $(throw "password is mandatory"),
+		$cacheIdentifier,
+		$defaultVersion = $(__.azure.rest.get_config "management_version"),
+		$defaultScheme = $(__.azure.rest.get_config "scheme"),
+		$defaultRetryCount = $(__.azure.rest.get_config "retry_count"),
+		$defaultContentType = $(__.azure.rest.get_config "management_content_type"),
+		$defaultTimeout = $(__.azure.rest.get_config "timeout"),
+		$fileTokenCachePath = "$($env:userprofile)\aad_tokens.dat",
+		$announcer = (new_announcer)
+	)
+
+	if($null -eq $cacheIdentifier) {
+		$cacheIdentifier = "$($subscriptionId)`_resource_management"
+	}
+
+	$aadResource = "https://management.core.windows.net/"
+	$aadTokenProvider = new_aad_token_provider_with_user_credential $aadResource $adTenantId -LoginHint $loginHint -Password $password
+	$authenticationPatcher = new_aad_file_cache_token_provider $cacheIdentifier $adTenantId $aadResource $aadTokenProvider $fileTokenCachePath -Announcer $announcer
+	$requestHandler = new_request_handler (new_request_builder $announcer) (new_retry_handler $write_response $announcer) $announcer
+
+	$baseOptionsPatcher = new_simple_options_patcher `
+		$defaultRetryCount `
+		$defaultScheme `
+		$defaultContentType `
+		$defaultTimeout
+
+	$optionsPatcher = new_resource_manager_options_patcher `
+		$authenticationPatcher `
+		$baseOptionsPatcher `
+		"management.azure.com/subscriptions/$($subscriptionId)"
+
+	$obj = new_rest_client $requestHandler $optionsPatcher $authenticationPatcher
+	$obj
+}
